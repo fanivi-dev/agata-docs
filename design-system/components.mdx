@@ -1,0 +1,170 @@
+---
+title: "Component catalog"
+description: "Wrapper families in packages/ui/components."
+---
+
+Import from the component path (avoid needless monorepo-level barrels). The families match the Storybook folders and the **UI** artboards in Paper.
+
+## Actions
+
+| Component | Notes |
+| --- | --- |
+| `button` | Thin Astryx Button boundary. Use required `label`, canonical `variant`/`size`, `isDisabled`, `isLoading`, `icon`, `endContent`, direct `href`/`as`, and raw `xstyle`. Use IconButton for icon-only actions. No shadcn aliases, `render`, `nativeButton`, `className`, `style`, or variant helper remains. |
+| `icon-button` | Astryx IconButton. Prefer for icon-only chrome. |
+| `app-shell` / `top-nav` / `side-nav` | Astryx AppShell, TopNav, SideNav. Studio chrome uses these. Do not nest AppShell or add a second `<main>`. |
+| `button-group` | Thin Astryx ButtonGroup boundary. Requires an accessible `label`; use Button or IconButton children. Astryx owns dividers, joined borders, elevation, and roving focus. |
+| `theme-toggle` / `theme-preference-toggle` | Canonical theme control |
+
+## Data
+
+| Component | Notes |
+| --- | --- |
+| `astryx-table` | Canonical Astryx `AstryxTable`. Children mode for Projects and Storybook compositions; data + columns for new uniform grids. |
+| `data-grid/*` | TanStack Table v9 grid: sorting, selection, resize, pinning and column visibility. Instantiate with `useTable({ features: dataGridFeatures })` |
+| `chart` | `ChartContainer` + `ChartConfig` |
+| `kanban` | Narrow dnd-kit board integration: `Kanban` → `KanbanBoard` → `KanbanColumn` → `KanbanColumnContent` → `KanbanItem` + `KanbanOverlay`. Use explicit `as`, raw `xstyle`, and `dragHandle`; only dnd-kit's transform/transition remains inline inside the owner. No generic `render` or class-string API. Used by Projects and Week plan. |
+| `sortable` | Narrow dnd-kit single-list integration: `Sortable` + `SortableItem` / `SortableItemHandle` / `SortableOverlay`. Use explicit `as`, raw `xstyle`, and `dragHandle`; only dnd-kit's transform/transition remains inline inside the owner. No generic `render` or class-string API. Used by collection ordering and Library sub-items. |
+
+## Disclosure
+
+| Component | Notes |
+| --- | --- |
+| `collapsible` | Thin Astryx boundary with a direct `trigger` plus `isOpen` / `defaultIsOpen`, `onOpenChange`, `isDisabled`, `value`, and `xstyle`. Astryx owns the accessible trigger button, chevron, disclosure state, and content region. The uncontrolled default is open; set `defaultIsOpen={false}` for initially closed disclosures. Keep secondary actions beside the root instead of nesting them in `trigger`. Used by guided sections, recipe sections, Connections help, and compact detail disclosures. |
+
+## Display
+
+| Component | Notes |
+| --- | --- |
+| `avatar` / `badge` / `token` / `item` / `kbd` | Badge is a thin Astryx boundary with required `label`, optional `icon`, semantic/category `variant`, and `xstyle`; it has no shadcn variants, sizes, children, `className`, or `style`. Token is the Astryx contract for selected filters, removable tags, and interactive chips (`label`, `color`, `size`, `onRemove`, `onClick`, `href`). Avatar, AvatarStatusDot, AvatarGroup, and AvatarGroupOverflow are transparent Astryx exports; pass `src`, `name`, `alt`, size, status, interaction, tooltip, and raw `xstyle` directly. The old Image/Fallback/Badge/GroupCount extraction slots and local avatar stylesheet are gone. Item is also a transparent Astryx export: pass `startContent`, required `label`, `description`, `endContent`, density, selection/interaction, and raw `xstyle` directly; semantic list containers are caller-owned. Media/Content/Title/Description/Actions/Group/Separator slots and the local item variants are gone. Kbd is a transparent Astryx export: pass a semantic `keys` chord and raw `xstyle`; Astryx owns platform glyphs and accessibility. These wrappers have no native primitive path or Base UI. |
+| `card` / `separator` | Card is a thin Astryx surface accepting `padding` and raw `xstyle`; compose anatomy with Layout/Text/Heading or semantic native elements. The shadcn Card slots are deleted. Separator maps onto Astryx Divider. |
+| `icon` | Canonical Astryx adapter: `<Icon icon={…} />` with Hugeicons data; use `size`, `color`, and `xstyle` |
+| `icon-tile` | Agata-owned StyleX square surface because Astryx has no equivalent. Active variants are `outline`, `tint`, and `muted`; pass `size`, `radius`, explicit `as`/`href`, and raw `xstyle`. There is no `render` or class-string API. |
+| `chat` | Transparent Astryx Chat family through `@agata/ui/components/chat`: layout, message list, messages, bubbles, metadata, composer, drawer, send button, and ordinary tool-call states. Use `balanced` density on the full page and `compact` in the panel; pass layout overrides through `xstyle`. |
+| `code-block` | Transparent Astryx CodeBlock boundary. Use upstream `size`, `width`, `container`, and `xstyle` for standalone code and tool payloads; Streamdown owns fenced Markdown rendering. |
+
+## Feedback
+
+| Component | Notes |
+| --- | --- |
+| `banner` | Thin Astryx Banner boundary. Use required `status` and `title`; pass optional `description`, `icon`, `endContent`, dismissal, and StyleX through the upstream contract. |
+| `empty` | Transparent Astryx EmptyState export. Pass required `title` and optional `description`, `icon`, `actions`, `headingLevel`, `isCompact`, and raw `xstyle` directly. The compound Header/Media/Title/Description/Content parser and slot class overrides are gone. |
+| `progress-bar` / `spinner` / `skeleton` | ProgressBar is a thin Astryx boundary: always provide `label`, use `hasValueLabel` / `formatValueLabel` for visible values, semantic `variant` for tone, and `xstyle` for layout. Spinner maps onto Astryx Spinner, defaults to `size="sm"` / `shade="inherit"`, and accepts semantic `size`, `shade`, `label`, and `xstyle` props instead of `className` / `style`. Skeleton is a thin Astryx adapter with `radius={2}` by default; use `width`, `height`, `radius`, `index`, and `xstyle` directly. |
+| `sonner` | Narrow imperative adapter over Astryx Toast. `toast.success`, `info`, `warning`, `message`, and the default call map to auto-hiding info toasts; `toast.error` maps to persistent error. Duration, deduplication ID, description, and action/cancel buttons map to Astryx options. `Toaster` accepts no props and mounts once per runtime shell. |
+
+## Forms
+
+| Component | Notes |
+| --- | --- |
+| `text-input` / `date-input` / `time-input` / `number-input` | Explicit Astryx field boundaries replace the generic HTML-type switch. TextInput uses controlled strings and value callbacks. DateInput and TimeInput preserve Astryx ISO values and emit `undefined` when cleared; convert that to an empty form value only at the feature or service boundary. NumberInput owns every numeric field, including steppers, units, formatting, limits, clear, and integer-only behavior. Use `htmlName` for native form submission. Each control owns its label, description, status, loading, required/optional, and disabled presentation. |
+| `color-picker` | Canonical controlled boundary for interactive hexadecimal color selection. Product code imports this component instead of depending on the underlying picker implementation. Compose field labels, presets, validation, and save behavior at the owning surface. |
+| `native-input` | Native `color` and `file` boundary only. Wrap it in `Field` when field UI is required and style it through `xstyle`. Remove this exception when Astryx provides equivalent controls or the product no longer needs the input type. |
+| `textarea` | TextArea is a thin controlled Astryx boundary: string values and value callbacks, integrated label/description/status/loading/disabled state, grapheme-aware `maxLength` counter, width, and `xstyle`. The adapter only restores native `id`, `inputMode`, and `minLength`, which Astryx does not currently preserve. |
+| `input-group` | Thin Astryx InputGroup/InputGroupText boundary for a real grouped control with text, icon, or action affixes. Give the group its accessible label and field state, then compose an explicit field control with `InputGroupText`. Standalone icon-prefix fields use TextInput `startIcon`; multiline fields use TextArea directly. The old Addon/Button/Input/Textarea extraction slots are deleted. |
+| `field` / `form-layout` | `Field` is the thin Astryx wrapper for custom, native, or third-party controls that do not render their own field UI. It accepts `label`, `inputID`, description, optional/required state, disabled state, and status directly; the old compound `FieldLabel` / `FieldDescription` / `FieldError` / `FieldGroup` tree is gone. Astryx controls such as TextInput, TextArea, Selector, CheckboxInput, and Switch own those props themselves. `FormLayout` is the thin Astryx layout boundary for vertical, horizontal, and horizontal-label form composition. |
+| `checkbox-input` / `checkbox-list` | CheckboxInput is a thin controlled Astryx boundary with required `label` and `value`, value-first `onChange`, integrated description/status/disabled/loading state, and no class/style or adjacent-label compatibility. Use `isLabelHidden` only with an exact contextual label. CheckboxList and CheckboxListItem are the Astryx collection contract for genuine multi-value groups. |
+| `switch` | Switch is a thin controlled Astryx boundary with required `label` and `value`, value-first `onChange`, integrated description/status/loading/disabled state, and no class/style or adjacent-label compatibility. Settings rows use `labelPosition="start"`, `labelSpacing="spread"`, and an explicit width; use `isLabelHidden` only with an exact contextual label. |
+| `radio-list` | RadioList and RadioListItem are thin controlled Astryx boundaries. The group owns its required label, selected string, change callback, description, orientation, status, and field state; each item owns its required label and value plus optional description/content. The uncontrolled aliases, adjacent-label extraction, class overrides, and duplicate radio visuals are deleted. |
+| `slider` | Slider is a thin controlled Astryx boundary: single-thumb values are numbers and ranges are exact `[number, number]` tuples. The control owns its required label, formatting/value display, marks, status, disabled state, description, width, and StyleX layout. One-element arrays, uncontrolled defaults, DOM callback aliases, and the local shape normalizer are deleted. |
+| `toggle` / `toggle-group` | Thin Astryx ToggleButton and ToggleButtonGroup boundaries. Toggle requires `label` and uses `isPressed` / `onPressedChange`; groups require `label`, controlled `value`, and `onChange`, with scalar values for `single` and arrays for `multiple`. Use Switch for persistent settings. |
+| `select` | Thin exports of Astryx Selector, SelectorOption, and MultiSelector. Use the direct controlled `options` / `value` / `onChange` contract, integrated field props, and `renderOption` / `renderValue` for rich rows. The compound shadcn tree, extraction adapter, `defaultValue`, and `onValueChange` aliases are gone. |
+| `typeahead` | Thin Astryx Typeahead, TypeaheadItem, search-source utilities, and types for input-shaped single-value search fields. |
+| **`combobox`** | **Narrow Agata adapter only for searchable popups with an arbitrary button trigger or lists embedded inside another overlay. It is controlled, popup-search-only, and has no input-field, chips, clear, or uncontrolled compatibility modes. See the dedicated page.** |
+| `date-picker` / `date-range-input` / `date-range-picker` / `calendar` | Use DateInput for ordinary single-date fields and DateRangeInput for immediate-apply ranges; both own serialized date keys and field chrome. Standard embedded single/range calendars use the thin Astryx Calendar boundary. DatePicker is only the custom-trigger single-date composition and DateRangePicker exposes only the FilterBar draft-until-Submit panel. `calendar-with-day-content` isolates the remaining DayPicker dependency for the product month board and task-count cells, whose custom day bodies Astryx cannot render. |
+
+## Layout
+
+Structure only — app chrome and containers that place other content.
+
+| Component | Notes |
+| --- | --- |
+| `stack` | Transparent Astryx `Stack`, `HStack`, and `VStack`. Use these for ordinary flex rows and columns. |
+| `grid` | Transparent Astryx `Grid` and `GridSpan`. Use `columns={N}` for equal columns. Keep breakpoint track templates in typed `xstyle` until an intrinsic `columns={{ minWidth, max, repeat }}` change is an explicit product decision. Import from `@agata/ui/components/grid`, not `components/astryx/grid`. Grid renders a `div`; do not replace a semantic list, nav, section, or table root just to adopt it. |
+| `inline-stack` | Narrow product composition over `Stack`. Required `direction`, `as` defaults to `span`, and a private `display: inline-flex` root applied after caller `xstyle`. Use only after Badge, Token, StatusDot, AvatarGroup, ButtonGroup, Toolbar, SegmentedControl, Tabs, Kbd, or IconTile have been ruled out. Remove when Astryx ships a generic inline stack. |
+| `sidebar` | `SidebarProvider` and `useSidebar` own collapse preference/state only, with raw root `xstyle`. Visual navigation is Astryx `SideNav` inside `AppShell`; all shadcn visual slots and render adapters are deleted. |
+| `scroll-area` | Minimal native overflow host with raw `xstyle`; there is no fake scrollbar export or class/style bridge. |
+
+## Navigation
+
+| Component | Notes |
+| --- | --- |
+| `breadcrumb` / `pagination` / `tabs` / `link` | Breadcrumbs, Pagination, TabList/Tab/TabMenu, and package Link use direct Astryx contracts. The app Link adapter adds locale-aware routing and prefetch policy. Compound navigation trees, button variants, and `render` adapters are deleted; layout overrides use raw `xstyle`. |
+
+## Overlays
+
+| Component | Notes |
+| --- | --- |
+| `dialog` | Controlled Astryx composition with required `isOpen`, `onOpenChange`, and `title`, plus explicit description, header content, footer, Layout height, and styling slots. Callers own trigger state. `DialogForm` is the only Agata composition. Product create/edit dialogs use `isBackdropDismissible` when light dismissal is intended and a fill layout when the body must scroll between a persistent header and footer. Compound shadcn slots, tree extraction, `render`, Base UI, native fallbacks, and class/style bridges are gone. All Astryx `xstyle` props receive raw StyleX styles. `appTheme` belongs on the root. |
+| `sheet` | Controlled Astryx composition with required `isOpen`, `onOpenChange`, and `title`. Top, left, and right panels use positioned Dialog; bottom panels use BottomSheet. Callers own trigger state. `SheetForm`, `SheetBody`, and `SheetFooter` are the only owned layout compositions and accept raw StyleX. Compound shadcn slots, tree extraction, class/style bridges, duplicate animation styles, Base UI, and native fallbacks are gone. `appTheme` belongs on the root. |
+| `alert-dialog` | Thin controlled Astryx confirmation boundary using direct title, description, cancel/action labels, action variant/loading, width, and raw `xstyle`. Callers own trigger state; Agata keeps dismiss-after-action behavior. Typed confirmations, custom body content, and multiple-action choices use `Dialog`. Compound shadcn slots, extraction, `buttonVariants`, class/style bridges, Base UI, and native fallbacks are gone. `appTheme` belongs on the root. |
+| `popover` / `tooltip` | Both use direct Astryx trigger/content contracts. `AnchoredPopover` is the one explicit adapter for calendar event details shared by detached triggers. Compound slots, ignored collision props, and native popup paths are gone. HoverCard was deleted because no shipped surface owned it. |
+| `dropdown-menu` | Thin Astryx boundary using `button` plus `items` or direct Astryx item components. Controlled state, selection, submenus, placement, dismissal, and keyboard behavior are upstream-owned; there are no Trigger/Content or native compatibility paths. |
+| `command-palette` | Thin Astryx CommandPalette boundary for global keyboard-driven launchers. Entity pickers use Typeahead, Selector, or the narrow popup Combobox adapter; there is no generic Command tree. |
+
+## Typography
+
+| Component | Notes |
+| --- | --- |
+| `text` | Thin Astryx `Text` and `Heading` boundary. Use `type`, `color`, `maxLines`, `hasTabularNumbers`, and `xstyle`; Agata status/trend colors come from the Astryx theme. |
+
+## Shared patterns (outside `@agata/ui`)
+
+These live in `apps/app/shared/components/` because they compose DS primitives rather than adding new ones. All are mirrored in Storybook:
+
+<Note>
+  A component belongs in `packages/ui` only if it is domain-agnostic. The decisive test is **copy ownership**: `FilterBar`, `CalmEmpty` and `GuidedSection` read `Guidance.*` from `apps/app/messages/`, so the package depended on the app's catalogue. They were moved into `shared/components/` for that reason — a primitive never owns product copy.
+</Note>
+
+| Pattern | Source | Storybook |
+| --- | --- | --- |
+| `FilterBar` | `shared/components/filter-bar.tsx` | `Data/Filter Bar` |
+| `CalmEmpty` | `shared/components/calm-empty.tsx` | `Feedback/Calm Empty` |
+| `GuidedSection` | `shared/components/guided-section.tsx` | `Disclosure/Guided Section` |
+| `CollectionBanner` | `shared/components/collection-banner.tsx` | `Display/Collection Banner` |
+| Stream (rail + cards) | `shared/components/stream/` | `Data/Stream` |
+| Loading skeletons (30) | `shared/components/page-loading-skeletons.tsx` | `Patterns/Loading skeletons` |
+| Agent chat composition | `features/agent/domains/conversations/` | `Patterns/Chat kit` |
+| Empty state | `shared/components/empty-state.tsx` | `Patterns/Empty state` |
+| Pagination controls | Numbered mode includes first/last page buttons. `shared/components/pagination-controls.tsx` | `Navigation/Pagination Controls` |
+| Detail properties block | `shared/components/detail-properties/` | `Patterns/Detail properties block` |
+| Insights blocks | `shared/components/insights-*.tsx` | `Patterns/Insights blocks` |
+| Day/week toolbar | `shared/components/day-week-toolbar.tsx` | `Patterns/Day week toolbar` |
+| AI image dialog | `shared/components/generate-entity-image-dialog.tsx` | `Patterns/Generate image dialog` |
+| Agenda + email reminder | `shared/components/agenda-email-settings.tsx` | `Pages/Activities/Detail/Dialogs` |
+| App shell | `shared/layout/studio-shell-frame.tsx` | `Layout/App shell` (+ parts) |
+
+Stream is used by Audit logs, Calendar agenda, Transactions, Project activity, Task focus and Week plan.
+
+### Recipes repeated across screens
+
+These are not shared components: several features rebuild them by hand. Storybook documents them under `Patterns/*` so they do not drift apart. **Read them before building a new instance.**
+
+| Recipe | Where it repeats | Storybook |
+| --- | --- | --- |
+| Confirmation dialog | 12 screens | `Patterns/Confirmation dialogs` |
+| Entity picker | Library, Tags, Projects | `Patterns/Entity picker dialog` |
+| Floating multi-select bar | Tasks, Tags, Library, Finance recurring | `Patterns/Bulk selection toolbar` |
+
+The shell for settings dialogs and pickers comes from `FORM_DIALOG_*` (`apps/app/shared/layout/form-dialog.ts`); studio create/edit dialogs use the shared `FormAsideShell` compatibility owner, which renders the canonical centered-dialog contract.
+
+## Icons
+
+Use **`<Icon icon={Tick02Icon} size="sm" />`** from `@agata/ui/components/icon` with icons from `@hugeicons/core-free-icons`. The adapter translates Hugeicons data to Astryx Icon, which owns sizing, color, and accessibility; the adapter does not add a hidden size default. Do not use `lucide-react` or `@phosphor-icons/react`.
+
+## Rich text
+
+Not in the DS `components/`: it lives in **`packages/rich-text`** (ProseMirror). Compose editor chrome from official Astryx tokens. Story: `Patterns/Rich text editor` (the real editor, in-memory persistence).
+
+Rendered content uses the `typeset typeset-docs` preset. It lives in `packages/ui/styles/globals.css` with the base sheet in `packages/ui/styles/typeset.css`; its reading measure is a local 37em layout contract, not a design token. Editor chrome uses `@agata/ui` plus StyleX, while plain CSS is reserved for ProseMirror-owned document DOM. Embedded components that keep their own typography must use `not-typeset` or `data-not-typeset`.
+
+Editor images keep their aspect ratio, are normalised between **240 × 160 px** and **720 × 480 px**, and can be resized from the corners. `width` and `height` are stored as ProseMirror node attributes; presentation stays responsive and never exceeds the available width.
+
+## How to choose
+
+1. Is it a single-value input pattern? → field + input/select
+2. Is it a searchable single-value field? → Typeahead. Is it an arbitrary-trigger or inline searchable popup? → Combobox. Is it multiple? → MultiSelector.
+3. Destructive confirmation? → alert-dialog
+4. Mobile side panel? → sheet
+5. No data? → empty / calm-empty
+6. Page loading? → skeleton + spinner
+
+Assembled patterns: [Patterns](/design-system/patterns).
