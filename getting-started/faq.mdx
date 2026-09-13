@@ -1,0 +1,52 @@
+---
+title: "Product FAQ"
+description: "Frequently asked questions about Agata (no engineering depth)."
+---
+
+## Where do I land when I enter a studio?
+
+In **Today** (`/studios/:id/today`). That is the canonical home. The Tasks inbox lives at `/tasks`.
+
+## Where do I write daily notes?
+
+In **Notebook** (`/notebook`): note inbox, groups, and rich-text editor. See [Notebook](/workspace/notebook).
+
+## Can I turn Tasks off?
+
+No. `tasks-app` is **always-on**.
+
+## Why don't I see Finance / Health in a team studio?
+
+In team those apps are usually **disabled** until an admin enables them. Tasks, projects, tags, library, and notebook are usually on.
+
+## What happens if I hit a plan limit?
+
+Member capacity and AI credits depend on the studio plan and its extras. Tasks, projects, tags, reminders, and other studio content are unlimited. Detail: [Plans](/platform/billing-plans).
+
+## Can I downgrade without deleting studio content?
+
+Yes. The downgrade is scheduled for the **end of the period**, and studio content remains available. The lower plan changes member capacity, monthly AI credits, and the Agent image pool.
+
+## Are there multiple languages?
+
+Yes: **English** and **Spanish**. See [Locale](/concepts/locale-and-i18n).
+
+## Is the notes editor the same as the tasks editor?
+
+Same rich-text stack; the **body** is stored as a versioned document separate from metadata. In the product: you write in the rich-text editor; you do not need the HTTP detail unless you are developing.
+
+## Who can see audit logs?
+
+Studio owners and admins. Route `/logs`.
+
+## What if I open a URL that does not exist?
+
+Agata shows a **404** page with a link home. Studio and other product routes still ask you to sign in when you are signed out.
+
+## Where do I give product feedback?
+
+With the feedback modal in the user menu; the review hub is internal. See [Feedback](/platform/feedback).
+
+## Where is the technical API / DB documentation?
+
+**API** and **Database** tabs. Frontend/Backend are drafts on purpose.

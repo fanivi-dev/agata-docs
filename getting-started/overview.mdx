@@ -1,0 +1,88 @@
+---
+title: "What is Agata"
+description: "Product vision: a personal assistant that turns goals into next steps, grounded in a unified studio."
+---
+
+Agata is a **personal assistant** that turns what you want into a plan and supported next steps. It is grounded in a **studio** of day-to-day and work tools. Studios can also **share** Nutrition recipes and meal plans with people who are not members.
+
+## In one sentence
+
+> A personal assistant that turns goals into next steps, grounded in one studio of specialized apps, with a home in **Today**.
+
+## Who it is for
+
+| Mode | Who | Focus |
+| --- | --- | --- |
+| **Personal** | One person | Full life + productivity; optional public Nutrition |
+| **Members / brand** | Studio with members | Collaboration on notebook, tasks, projects; share lists without adding every reader |
+
+## The three layers you will see in the app
+
+```txt
+Studio  →  public actor + members + billing (`profileId`)
+     └── Studio apps  →  tasks, finance, health…
+     └── Share     →  /@handle recipes, plans, library, collections, goals, meals
+```
+
+Detail: [Product model](/concepts/product-model) and [Studios, members, and follow](/concepts/organizations-studios).
+
+## Product surfaces
+
+### Daily
+
+- **Today** — studio home ([detail](/workspace/today)): date control, next action, capture, day line, and control rail.
+- **Notebook** — rich-text writing and groups ([detail](/workspace/notebook)).
+- **Week plan** — Mon–Sun planning for Daily.
+
+### Work
+
+- **Tasks** — task inbox (it is no longer the landing).
+- **Projects, tags, activities, calendar, reminders** — organize and plan over time.
+
+### Apps
+
+- [Goals](/apps/goals) · [Finance](/apps/finance) · [Library](/apps/library)  
+- [Nutrition](/apps/nutrition) · [Health](/apps/health) · [Pomodoro](/apps/pomodoro)
+
+### Platform
+
+- Accounts and sign-in  
+- [Plans and billing](/platform/billing-plans)  
+- [Connections](/platform/connections) (people network), [Explore](/platform/explore) (recommended public studios), audit logs (admins), internal feedback  
+
+## How navigation feels
+
+- Unified sidebar + **app launcher**
+- **⌘K** to jump between areas
+- Each app can tint the UI with its **theme** (see the design system)
+
+Short guide: [Navigation and shell](/getting-started/navigation).
+
+## First steps
+
+<Steps>
+  <Step title="Enter the app">
+    Sign-in / sign-up. See [Auth](/platform/auth).
+  </Step>
+  <Step title="Open or create a studio">
+    Everything lives under `/studios/:handle/…`. See [First studio](/getting-started/first-studio).
+  </Step>
+  <Step title="Start in Today">
+    Home is `/today`. See what is due now, change day if needed, and capture a task or note.
+  </Step>
+  <Step title="Explore the apps">
+    Finance, health, notebook… depending on what you need today.
+  </Step>
+</Steps>
+
+## Quick glossary
+
+| Term | Meaning |
+| --- | --- |
+| **Studio** | Product-data container (formerly workspace) |
+| **App** | Domain (tasks, finance…) with routes and a theme |
+| **Organization** | Owns people and Studios; not a Studio |
+| **Plan** | Free (`base`) or Pro — usage limits |
+| **Quick capture** | Create entities without leaving the current flow |
+
+More: [Glossary](/concepts/glossary).

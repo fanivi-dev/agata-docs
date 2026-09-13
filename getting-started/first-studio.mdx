@@ -1,0 +1,76 @@
+---
+title: "First Studio"
+description: "Create or open the work context and land in Today."
+---
+
+The entire authenticated product experience lives under:
+
+```txt
+/studios/[handle]/...
+```
+
+The handle is unique. APIs still use `profileId`. Public handles stay at `/@handle` (RSC `/p/[handle]`). Locale (`en` / `es`) is cookie-based — there is no `/en` or `/es` prefix in the URL (`localePrefix: 'never'`).
+
+Legacy 308: `/workspaces` → `/studios`, `/workspaces/:id/*` → `/studios/:id/*`, `/profiles` → `/studios`, `/profiles/:id/*` → `/studios/:id/*`. A UUID studio URL redirects to the handle.
+
+## Model in 30 seconds
+
+```txt
+You
+ ├── personal Studio
+ └── Organization (optional)
+       ├── Teams (permission shortcut, not public)
+       └── Studios
+             └── Tasks, notes, finance…
+```
+
+- **Personal:** designed for a single owner.
+- **Members:** roles and invitations; data stays scoped to the studio.
+- **Visibility:** new studios are **private**. `/@handle` is 404 until you set the studio to public.
+- **Name:** unique. It becomes the public handle. A duplicate name is rejected.
+
+## First access
+
+<Steps>
+  <Step title="Sign in">
+    Typical routes: `/sign-in`, `/sign-up`.
+  </Step>
+  <Step title="Resolve the studio">
+    The app lists or creates the studio (`/studios`).
+  </Step>
+  <Step title="Land in Today">
+    ```txt
+    /studios/:handle/today
+    ```
+    That is **home**. Tasks remains at `/tasks` as the inbox.
+  </Step>
+  <Step title="Enable apps (team)">
+    Notebook, tasks, projects, tags, and library are usually on. Finance, health, and nutrition may require admin opt-in.
+  </Step>
+</Steps>
+
+## Useful routes outside the studio shell
+
+| Route | Use |
+| --- | --- |
+| `/studios` | Studio picker (Personal / Organizations / Teams / **Trash**) |
+| `/explore` | Find public studios (recommendations + handle lookup) |
+| `/today` | Redirect to Today of the current studio |
+| `/logs` | Redirect to activity logs of the current studio |
+| `/studios/:id/billing` | Studio billing |
+| `/studios/:id/settings` | Studio settings (name, members, usage) |
+| `/studios/:id/team` | Add people to the studio team |
+| `/connections` | People network (invite to studios) |
+
+## Plans and limits
+
+When you use all member capacity or AI credits, Billing shows the available upgrade or add-on. Studio content is unlimited. Summary: [Billing and plans](/platform/billing-plans).
+
+## Switching studios
+
+When you switch, the app **keeps the same view** (page or tab) in the new studio. If you were on a detail or create screen (for example a specific transaction, note, or task), it returns to the **parent page** of that section — ids are not shared across studios.
+
+## Next
+
+- [Navigation](/getting-started/navigation)  
+- [Studios, members, and follow](/concepts/organizations-studios)  

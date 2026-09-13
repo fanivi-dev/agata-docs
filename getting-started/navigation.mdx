@@ -1,0 +1,61 @@
+---
+title: "Navigation and shell"
+description: "Sidebar, app launcher, command palette, and breadcrumbs."
+---
+
+Agata uses a **unified shell**: the same chrome (sidebar, mobile, breadcrumbs) across every studio app.
+
+## Sidebar
+
+A list with no group headers. Order:
+
+Today → Week plan → Calendar → Tasks → Notebook → Activities → (separator) Nutrition, Finance, Health, Library, Pomodoro, Goals, Agent.
+
+Domains with multiple sections (Finance, Nutrition, Tasks, …) expand in place and nest those sections under the parent item. The first child is the app landing page, labeled with the app name. Tasks nests Tasks, Focus, Insights, and Trash. Notebook nests Notebook, Insights, and Trash. The active domain stays open; other domains stay collapsed.
+
+Top: studio picker, search (⌘K), and a control to hide the bar. On desktop it is full height and flush to the left edge (no margin). Collapsed, it becomes a 48px icon rail with tooltips. The right edge of the sidebar also toggles collapse. Bottom: user identity.
+
+Audit logs are not in the sidebar: they live in the user menu (owners/admins) and in ⌘K.
+
+The active area is inferred from the path (`/today`, `/tasks`, `/finance`, `/health/…`).
+
+## Cross-app launcher
+
+Switch apps **without losing** the `profileId`:
+
+| App | Typical destination |
+| --- | --- |
+| Today | `/today` |
+| Tasks | `/tasks` |
+| Goals | `/goals` |
+| Finance | `/finance` |
+| Library | `/library` |
+| Nutrition | `/nutrition` |
+| Health | `/health` |
+| Pomodoro | `/pomodoro` |
+
+Each app can apply a **visual theme** (`data-app-theme`). See [App themes](/design-system/app-themes).
+
+## Command palette (⌘K)
+
+Search and jump to areas (Today/Home, tasks, calendar, finance, notebook, billing…). Ideal when you already know the surface name.
+
+**C** creates in the current area. **?** opens the shortcut cheatsheet.
+
+Product detail: [Command palette](/workspace/command-palette) and [Keyboard shortcuts](/workspace/keyboard-shortcuts).
+
+## Breadcrumbs
+
+The first crumb is the current section (Accounts, Recipes, Routines…). On the app landing page that crumb is the app name (Finance, Tasks, Today…). Multi-section apps put the section menu on that first crumb — the app name is not repeated as a parent of the section. Detail screens append the current record after that.
+
+The first crumb is a menu when that app has more than one page, so you can jump to the landing page or a sibling section without going back to the sidebar. The current record is also a menu when that list has other items: up to the first 10 siblings, so you can switch records without returning to the list. Calendar, Today, insights, and Agent chats do not use this — Agent already has its own conversation switcher. There is no area icon in the header.
+
+## Mobile
+
+The shell has a mobile variant (drawer / bottom patterns from the design system). Product content is the same; the chrome changes.
+
+## Locales
+
+- `en` (default) and `es`  
+- Locale-aware navigation in the app  
+- Concept: [Locale and i18n](/concepts/locale-and-i18n)  
