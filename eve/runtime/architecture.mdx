@@ -1,0 +1,148 @@
+---
+title: "Architecture"
+description: "Eve runtime, HTTP channel, domain layer, and chat persistence."
+---
+
+Eve runs on the **`eve`** runtime (v0.47.6), which discovers the agent by walking the filesystem under `apps/app/agent/`.
+
+## Map
+
+```text
+apps/app/agent/
+├── agent.ts                  configuration: fixed model (AGENT_MODEL_ID)
+├── instructions.md           base prompt: identity and global rules
+├── instructions/
+│   └── 20-sections.ts        dynamic briefing from the member's sections
+├── channels/eve.ts           HTTP ingress + auth chain
+├── lib/
+│   ├── go-api.ts             Go API client (eveGoFetch)
+│   ├── eve-profile.ts        requireEveProfileAuth
+│   ├── sections.ts           sections: parsing and checks
+│   ├── capabilities/         catalog, routing, and per-turn activation state
+│   ├── tool-kit.ts           section/routing gate + durable identity/receipt binding
+│   └── domains/<domain>/     schemas.ts · shape.ts · handlers.ts
+├── skills/                   permission-aware procedures loaded on demand
+└── tools/                    FLAT — one defineDynamic per domain
+```
+
+`agent/tools/` is **flat**: the runtime does not support subdirectories there. All shared code lives in `agent/lib/`, which does allow them.
+
+## Layers
+
+<Steps>
+  <Step title="tools/<domain>.ts">
+    Declares the domain tools and gates them by section. Declaration only: description, input and output schemas, approval policy, and an inline arrow that delegates to the handler.
+  </Step>
+  <Step title="lib/domains/<domain>/schemas.ts">
+    The Zod schemas. One `*Input` per tool plus the shared `*Output`s.
+  </Step>
+  <Step title="lib/domains/<domain>/shape.ts">
+    Trims the Go response to what the model can use. One shaper per entity, not per tool.
+  </Step>
+  <Step title="lib/domains/<domain>/handlers.ts">
+    The only layer that touches HTTP. Each handler opens with `requireEveProfileAuth(ctx)` and calls `eveGoFetch`.
+  </Step>
+</Steps>
+
+Adding a new domain is those four files plus canonical metadata in `lib/capabilities/catalog.ts`. Nothing in `tool-kit.ts` changes.
+
+## Capability exposure
+
+The catalog contains 173 product tools, including 22 bounded bulk tools. Tool callbacks stay literal in `agent/tools/*.ts`; the catalog owns names, groups, sections, read/write mode, risk, intent keywords, anchors, bulk classification, and linked skills.
+
+`EVE_TOOL_ROUTING_MODE` controls exposure:
+
+- `legacy` (default during rollout) exposes every tool in the caller's granted sections.
+- `progressive` exposes a small core, the group inferred from safe screen context, and bounded groups activated by `search_agent_tools` for the current turn.
+
+The direct typed tools and native approvals remain unchanged in progressive mode. `search_profile` is a bounded core lookup over authorized Task, Project, Note, Activity, Goal, and Library server searches. It returns at most five hits per source and twenty combined, without bodies, money amounts, or health values.
+
+Activation state is reset on `turn.started`; tools are resolved again on every `step.started`. Group and step budgets are checked statically. Longer procedures such as day/week planning, goal breakdown, financial review, meal planning, and capture/organize are permission-aware Eve skills rather than always-on payload instructions.
+
+## Why tools do not import `services/`
+
+The app has a full services layer in `apps/app/services/`, but Eve **cannot use it**: queries are `server-only` with `'use cache'` and actions are `'use server'`. Neither is importable from the Eve process.
+
+Tools call the same Go endpoints again with the user's session token, via `eveGoFetch`. The authoritative contract for each payload is `apps/api/internal/<domain>/ports/in/*.go` — and, when the delivery layer defines its own body, `apps/api/internal/delivery/http/*.go`, which sometimes differs (for example `occurredAtMs` when creating a transaction versus `occurredAt` when updating it).
+
+After every **write**, the handler calls `eveInvalidateCache` → `POST /api/internal/eve-cache`, authenticated with the session bearer. The proxy lets that route through without a browser cookie, and the handler itself validates token + membership before applying the same tags as `invalidateCache` in services (`updateTag`). The chat client calls `router.refresh()` when the turn ends so the open UI sees the new data.
+
+<Warning>
+OpenAPI renders Go structs without json tags in PascalCase (notebook, activity logs, library subitems). Go decodes without distinguishing case, so camelCase works the same — but the spec is not the source of truth for those payloads.
+</Warning>
+
+## HTTP channel
+
+`agent/channels/eve.ts` mounts the channel at `/eve/v1/*`, same origin, outside next-intl.
+
+| Route | Use |
+| --- | --- |
+| `GET /eve/v1/info` | Agent metadata |
+| `POST /eve/v1/session` | Create a session |
+| `POST /eve/v1/session/:id` | Send a turn |
+| `POST /eve/v1/session/:id/cancel` | Cancel |
+| `GET /eve/v1/session/:id/stream` | Event stream |
+
+`apps/app/proxy.ts` protects `/eve/*` with the optimistic Better Auth cookie (401 if missing). Real authorization is done by the channel — see [Auth and sections](/eve/runtime/auth-and-sections).
+
+`uploadPolicy` accepts `image/*` up to 5 MB.
+
+## Realtime voice
+
+A separate channel from Eve chat: the browser opens a WebSocket to AI Gateway with a short-lived client secret. There is no audio proxy through Next.
+
+| Piece | Role |
+| --- | --- |
+| `POST /api/agent/voice/token` | Better Auth + membership + active chat/reservation; local rate limit; 30 s token with `gateway.experimental_realtime.getToken`; meta-tool defs; **never** exposes `AI_GATEWAY_API_KEY` |
+| `agent/lib/voice/` | Instructions, meta-tools, Eve handler registry, synthetic `ToolContext` |
+| `services/agent/actions/run-voice-tool.ts` | Runs `search_agent_tools` / `run_agent_tool` with the section gate and one-time server approval challenges |
+| `features/agent/.../use-agent-voice-session.ts` | `experimental_useRealtime` + mic/playback + per-utterance reserve/confirm + bounded-retry atomic persistence |
+
+Instructions and tools are applied with the client's `session-update` (not during token mint, because AI Gateway ignores `sessionConfig` there). Capture only starts when the SDK confirms `connected`; setup, credit, or WebSocket errors close capture, playback, tracks, and the connection.
+
+The microphone `MediaStream` is opened once per session. Between the end of an utterance and the next reservation, its tracks are temporarily silenced with `track.enabled`; `stopAudioCapture` is not called, because AI SDK closes the `AudioContext` and permanently stops the tracks. After confirming the credit, the next turn is reserved immediately and the microphone is re-enabled, keeping barge-in during the reply.
+
+`search_agent_tools` returns a short catalog ordered by relevance with each result's JSON `inputSchema`. `run_agent_tool.args` accepts dynamic properties and the server re-validates them with the authoritative Zod schema before executing. Tool results wait for the previous playback to finish before requesting continuation, to avoid overlapping audio.
+
+Sensitive voice calls do not trust a client `approved` boolean. The first call creates a short-lived challenge bound to actor, profile, chat, turn, call, tool, and canonical argument digest. Approve and deny both consume that challenge exactly once before the tool can proceed. The consent view exposes only localized section copy plus allowlisted names, titles, dates, counts, and amounts; identifiers and secret-like values are omitted.
+
+The session cuts off after 2 minutes of inactivity or 5 minutes total. The STT dictation mic (left of the composer) remains independent: it converts speech to text in the draft without opening a realtime session.
+
+## Client
+
+`apps/app/features/agent/domains/conversations/` uses `useEveAgent` from `eve/react`, resumes a stored session on mount, and sends four headers on every request:
+
+| Header | Content |
+| --- | --- |
+| `x-agata-profile-id` | Active profile. **Required**: without it the channel responds 403. |
+| `x-agata-iana-timezone` | Browser timezone, from which all date keys are derived. |
+| `x-agata-chat-id` | Owned chat that may operate the durable session. |
+| `x-agata-eve-claim` | Per-mount random claim used once to bind a new Eve session to that chat. |
+
+A `session.failed` event is a recoverable chat state: history stays, the stored Eve session is cleared, and the next send creates a new durable session. The client disconnects the stream on that terminal event so the request does not sit until the platform timeout.
+
+The model is selected dynamically at `step.started` (`AGENT_MODEL_ID` remains the voice/reservation reference). See [Models](/eve/runtime/models).
+
+Stream parts are rendered as text (Streamdown) and `dynamic-tool` results. A pure presentation policy maps every canonical tool to a semantic kind and a turn role; the client then renders singular cards, bounded rows, grouped search/agenda/Week-plan results, summaries, partial outcomes, navigation, or downloads. Supporting results are suppressed when a later terminal result supersedes them, while text-only policies produce no success component. This presentation layer is independent from capability routing.
+
+The UI rebuilds results from the persisted tool input/output and normalized receipts; it does not store JSX or a second card snapshot. Old or invalid shapes fail closed to the safe receipt renderer or stored prose. In production, raw reasoning **is not** shown. Eve's `tool-approval`, `question`, and `session-limit` input kinds have distinct localized presentation; freeform questions answer with `{ requestId, text }`, and answered or denied checkpoints remain visible with their execution state — see [Approvals](/eve/tools/overview#approvals) and [Utility](/eve/runtime/utility).
+
+Chat, history, and credit loads distinguish ready, missing/unauthorized, and transient error states. A transient failure keeps the last usable value and offers a localized retry instead of showing an empty or deleted state. Composer submission is accepted/failed explicitly: text, attachments, and local Blob previews remain owned by the draft until acceptance or explicit removal.
+
+Tool-produced navigation is fail-closed. The client accepts only paths inside the current `/profiles/:handle` prefix, rejecting external, protocol-relative, escaped, traversal, or cross-profile values. History search owns `aria-activedescendant` on the focused input, announces the highlighted item, loads keyboard/click previews immediately, debounces pointer previews, ignores stale responses, and keeps a bounded cache.
+
+Each turn can carry `clientContext` (timezone + `screen`) via `prepareSend`; it is ephemeral and is not stored as memory.
+
+## Persistence
+
+History in Postgres: `eve_chats` and `eve_chat_events` (migration `000012_eve_chat`, privacy/memory in `000039`, durable controls in `000069`). New chats are **private** by default; chats shared with the profile are read-only for non-authors and do not expose `ClientSessionState`. Every follow-up, stream, cancellation, reset, clear, compact, or input response checks the session-owner binding at Eve route auth. This is the only place the app touches Postgres directly instead of going through Go. Schema in [Database → Agent](/database/agent).
+
+During the stream, only non-ephemeral events are persisted. `message.appended` is omitted, while both `reasoning.appended` and `reasoning.completed` are discarded before every append and snapshot. Read-time filtering protects legacy rows immediately; migration `000070` irreversibly removes them at rest. Every append and terminal snapshot uses a monotonic compare-and-swap revision. A stale tab cannot overwrite an index or truncate a later writer; it reloads and resumes from the accepted server state. Voice persistence is one atomic, idempotent append. Local metrics read these events (`bun --filter app eve:metrics`).
+
+The durable Eve principal contains the Better Auth session row id, never its bearer token. Each tool call resolves the current, unexpired token from Postgres through `auth.current`; there is no credential fallback to `auth.initiator`. Go reads time out after 15 seconds, writes after 30 seconds, and both inherit Eve's cancellation signal. Every write carries a stable `Idempotency-Key`; Go records the request before dispatch and either replays the stored response or fails closed on an indeterminate result.
+
+## Runtime limits and compaction
+
+Root sessions compact at 75% of the active model context window and have explicit cumulative windows: 1,500,000 input tokens, 100,000 output tokens, and a 14-day absolute lifetime. The input ceiling was raised from the provisional 1,000,000 after the 2026-08-31 local aggregate baseline found p50/p90/p99 input totals of 199,143 / 969,564 / 1,216,943 across 19 measured sessions. Output p99 was 3,258 and observed lifetime p99 was about 2.43 days.
+
+Eve's compaction checkpoint preserves framework tool state and the constraints, decisions, references, and remaining work required to continue; Agata never adds raw `reasoning.*` to its persisted history or handoff. When a token window is reached, the typed `session-limit` checkpoint offers a new-chat recovery or cancellation. New-chat recovery first cancels the parked old turn, then carries at most 4,000 characters of recent user/assistant text plus pending request and tool-call status identifiers. It excludes files, reasoning, and tool inputs/outputs, and cannot loop back into the over-limit session.
