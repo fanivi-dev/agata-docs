@@ -1,0 +1,40 @@
+---
+title: "Command palette"
+description: "⌘K: jump between apps, pages, and studio actions."
+---
+
+The command palette is the studio's **universal shortcut**: search and navigate to product areas without using the sidebar.
+
+Open it with **⌘K** / **Ctrl+K**, or with the sidebar search control (above the main destinations). The shortcut cheatsheet (**?**) and **C** (create in the current area) live in [Keyboard shortcuts](/workspace/keyboard-shortcuts).
+
+## What it does
+
+- Detects the current `ProfileAppArea` from the pathname
+- **Destinations**: main studio apps (tasks, calendar, activities, health, notebook, pomodoro, nutrition, finance, library, goals, agent) plus billing; logs when the role/studio allows it. The feedback hub **does not** appear: it is a root route with no navigation entry
+- **Pages**: full catalog of hubs from every allowed app (not only the current area). The current area is prioritized at the start of the list
+  - Tasks: inbox, focus, projects, tags, calendar, activities
+  - Finance: transactions, accounts, recurring, budgets, savings, debts, planner, insights
+  - Nutrition: meals, planner, recipes, inventory, shopping
+  - Health: check-ins, trends (metrics), routines
+  - Library: items, collections, insights
+  - Notebook, goals, pomodoro, agent (homes)
+- **Actions**: one quick capture per allowed app (task, reminder, transaction, meal…), *Send feedback*, studio index, user preferences. The current area's capture shows the **C** shortcut
+- Uses the same path helpers as the rest of the app (`StudioPaths`, `FinancePaths`, `HealthPaths`, `LibraryPaths`, etc.)
+
+## Registry
+
+Source of truth in code:
+
+- `apps/app/shared/constants/studio-area-catalog.ts` — area, access owner, destinations, shell copy, and pages
+- `apps/app/shared/components/use-studio-command-palette-items.tsx` — builds palette rows (RBAC + catalog + captures)
+- `apps/app/shared/quick-capture/studio-quick-capture-registry.ts` — area captures for **C** and palette actions
+- Path helpers: `apps/app/shared/navigation/paths.ts`
+- Active shell / landing: `apps/app/shared/lib/navigation/route-helpers.ts`
+
+## Best practices when adding commands
+
+1. Reuse helpers from `apps/app/shared/navigation/paths.ts`
+2. Register the area, destination, and pages once in `PROFILE_AREA_CATALOG`
+3. Add i18n labels in shell / daily nav messages (en **and** es)
+4. Do not hardcode `/es/studios/...` by hand
+5. Declare `entitlementAppId` on the area; keep special runtime gates such as the logs role out of the catalog

@@ -1,0 +1,75 @@
+---
+title: "Calendar"
+description: "Studio agenda over time."
+---
+
+The **calendar** is the studio's canonical operational timeline. Any active item with a scheduling, due, start, target, availability, expiry, meal-plan, or recurring-payment date appears automatically. Its own reminders can still be created directly, and email delivery is always optional.
+
+Historical dates do not become agenda items: completed transactions, activity logs, meal logs, check-ins, metrics, Pomodoro sessions, and creation/update timestamps stay in their owning apps.
+
+Activities of type **Block** are excluded from the calendar agenda and its load insights. Scheduled habits continue to appear automatically.
+
+## Insights
+
+The **Insights** tab (`/calendar/insights`) summarizes agenda load: today, next 7/14 days, reminders (one day vs several days), recurrence, upcoming emails, and distribution by source — without inventing completed states. API: `GET /api/calendar/studios/:profileId/insights-summary?todayLocalDateKey=YYYY-MM-DD` (optional `ianaTimeZone`).
+
+## What you can do
+
+- **Month**, **week**, **day**, **Next**, and **Emails** views (`?view=week` / `?view=day` / `?view=agenda` / `?view=emails`; month by default). Month and week grids start on Monday, same as date pickers, Week plan, and Nutrition
+- Reminders and multi-day events can include an optional **venue**. Overlapping timed reminders whose places are 8 km or farther apart show a commute warning
+- Keyboard shortcuts (outside inputs): **M** month, **W** week, **D** day, **T** today, **C**/**N** create reminder
+- Header with the user's short time zone; at ≥1280px the ‹ Today › navigation is not compressed and the view toggles can scroll horizontally
+- **Next** view: always starts on the user's current day, shows today + 6 days, and can load additional 7-day blocks
+- **Emails** view: **Upcoming emails** (pending future sends, with send day and time) and **Sent emails** subtabs (`?view=emails&emails=sent`)
+- Filter the agenda by source type
+- Create, edit, and delete calendar **reminders** (one day or several; timed or all day; assignment to members; email goes to assignees, or to the creator if none)
+- Use an inclusive date range for several days (e.g. vacation Monday to Friday); they appear on each day of the range. Email is anchored to the first day, or to each day if you enable **Email each day**
+- In week/day, **all-day** reminders (and other untimed items) appear in the **All day** row; open them there to see detail or edit
+- In week/day, the grid opens with a **smart** time range around the visible items; the **Full day** control returns to 24 hours without losing context
+- Clicking a gap in week/day opens the reminder form with the date and the 15-minute time already selected
+- In the month grid, **+N more** opens a popover with the day's events (and an option to open the day view)
+- Reschedule one-shot single-day reminders by dragging in week/day: keeps the grab point, snaps to 15-minute intervals, keeps duration in the preview, auto-scrolls near the edges, and does not open the detail on drop
+- Open items from other apps from the detail (read-only in calendar)
+- In the **Next** view, the “back” / reset control returns to the user's current day
+- Navigate from ⌘K or the sidebar
+
+## Sources on the agenda
+
+| Source | Origin | Editable here |
+| --- | --- | --- |
+| Reminder | Calendar reminders (one timed day, or several full days) | Yes |
+| Task reminder | Tasks with **`reminder_date`** | No — open in Tasks |
+| Task due | Tasks with **`due_date_key`** (open) | No — open in Tasks |
+| Activity | Active scheduled habit occurrences (excludes Block activities) | No |
+| Project | Projects with **`deadline_key`** | No |
+| Goal | Goals with **`target_date_key`** / **`start_date_key`** | No |
+| Library | `availability_at` | No |
+| Shopping list | Nutrition shopping collection `target_date_key` | No |
+| Meal plan | Nutrition meal plan slots | No |
+| Expires | Nutrition inventory `expires_at_key` | No |
+| Payment | Active Finance recurring **expense** rules | No |
+| Income | Active Finance recurring **income** rules | No |
+| Transfer | Active Finance recurring **transfer** rules | No |
+| Debt | Finance debts (`due_day_of_month` / payoff) | No |
+| Savings | Finance savings goals `target_date` | No |
+| Week plan | Every dated [Week plan](/apps/week-plan) item | No — edit its day in Week plan. Optional time/email settings may use a linked reminder internally |
+
+The Tasks calendar panel still shows density by due date; those same deliveries also appear here as the **Task due** source.
+
+## Routes
+
+```txt
+/studios/:id/calendar
+/studios/:id/calendar/insights
+```
+
+Visual theme: `calendar`. Each source uses the `data-app-theme` of its domain (tasks, projects, activities, goals, finance, library, nutrition, weekplan).
+
+## Related
+
+- [Reminders](/workspace/reminders)
+- [Tasks](/workspace/tasks)
+- [Projects](/workspace/projects)
+- [Goals](/apps/goals)
+- [Finance](/apps/finance)
+- [Nutrition](/apps/nutrition)

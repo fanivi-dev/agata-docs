@@ -1,0 +1,38 @@
+---
+title: "Activities"
+description: "Recurring activities and their tracking."
+---
+
+**Activities** models operational habits/activities (beyond a one-off task): streaks, per-day logs, reminders.
+
+## What you can do
+
+- **Assign** the activity to one or more studio members (email reminders respect that list)
+- Define an activity with schedule and recurrence (daily / weekly / monthly / custom), including slots per weekday
+- Choose the **type** on create (habit or time block); after it is created it cannot be changed
+- **Habits:** mark complete / cancel the day (with optional reason), streaks and completion rate derived from their logs. A habit may set an optional **default place**; time blocks do not carry a place.
+- **Time blocks:** agenda/timeline only (sleep, meals, transport…); no manual marking and no streak. Today shows a block as complete automatically after its end time, without creating a log
+- **Pause recurrence** without deleting the activity: it stops counting in the **Today** view (agenda, ribbon, day streaks); it stays visible in **grid** and **list** so you can resume or edit it
+- **Reset history** (habits, detail ⋮ menu): deletes logs, streaks, and completion rate and resets `createdAt` so the habit behaves as newly created, without losing schedule or settings
+- On the **detail**, a header with image, title, type, **Log today**, and a properties rail (repeat, schedule, assignees, tags, pause, and email). Activities are **not** linked to a project. Three summary cards on habits (streak, month completion, and sessions) and a monthly calendar. The calendar marks and counts only configured recurrence weekdays; unscheduled days stay empty. The **Scheduled** block (Mon–Sun) also shows on daily habits. Habits are marked with **Log today** or by tapping a day; time blocks only show the schedule, with no done/not-done and no streak cards
+- Active scheduled occurrences appear in the studio [Calendar](/workspace/calendar) automatically. Email reminders with an offset remain optional
+- Attach images (manual upload or **AI generation** from the card: pre-filled prompt, preview, confirm → Vercel Blob / `activity_images`)
+- Export the activities list and each activity's logs to CSV from their bars.
+
+## Insights
+
+The **Insights** tab (`/activities/insights`) shows active/paused habits, blocks, weekly adherence, streaks, and daily load. Paused blocks and habits do not enter adherence denominators. API: `GET /api/activities/studios/:profileId/insights-summary?todayLocalDateKey=YYYY-MM-DD`.
+
+## Routes
+
+| Route | Use |
+| --- | --- |
+| `/activities` | Today / grid / list (`?view=`). In Today view the date control goes first (as on Today); `?date=YYYY-MM-DD` shows habits and blocks for that day (with no param it is civil today) |
+| `/activities/insights` | Insights (adherence and load) |
+| `/activities/:activityId` | Detail |
+
+Plan limit: activities per studio.
+
+## Follow-ups
+
+- **Quantity / weekly frequency goals** (e.g. “3× per week” or a counter per period) are not modeled: streak and completion rate assume a binary log per period. Adding them would require a new schema + streak rules; it is out of this scope.

@@ -1,0 +1,60 @@
+---
+title: "Notebook"
+description: "Studio notebook: rich-text notes and groups."
+---
+
+**Notebook** is the studio's primary writing surface.
+
+## What you can do
+
+- View the **note inbox** (dense list by default; optional grid)
+- Filter by scope: **All / Pinned / Drafts / Archived**
+- Search and filter by **type**, **status**, and **group** (active filter chips)
+- Sort by updated, title, or created date
+- **Group by** group / type / status to explore the collection
+- Create notes in a rich-text editor (selection bubble, empty-line insertion, and `/` menu)
+- Soft-delete with **undo** in the toast and restore from the **Trash** page
+- Export from the ⋮ menu (Markdown / PDF via print)
+- Insert images
+- Note typologies (note, blog, research…) and statuses (draft → published)
+- Quick capture
+
+## Insights
+
+The **Insights** tab (`/notebook/insights`) summarizes active/archived notes, words, groups, status/type, and 14-day activity without loading bodies. KPIs and bars link to the inbox with the matching filter (`scope`, `status`, `type`, `groupBy`). API: `GET /api/notebook/studios/:profileId/insights-summary?todayLocalDateKey=YYYY-MM-DD`.
+
+## Routes
+
+| Route | Use |
+| --- | --- |
+| `/notebook` | Home / inbox |
+| `/notebook/insights` | Insights (volume and activity) |
+| `/notebook/trash` | Trash for deleted notes |
+| `/notebook/:noteId` | Editor |
+
+**Trash** opens from the studio sidebar or command palette. From there you can restore deleted notes. `?scope=trash` on `/notebook` **redirects** to `/notebook/trash` (it is not a list scope).
+
+## Rich-text editor
+
+Each note supports a ProseMirror document with anti-abuse limits: **100 000** characters, **20** images, and **5 MB** per image. Technical detail in [Edit rich text](/api/guides/edit-rich-text).
+
+The note detail is a **document page** (same model as
+[task](/workspace/tasks) detail): flush title, compact properties, and document
+body with no sticky toolbar. Formatting appears in the **selection bubble**,
+the **insertion strip** on an empty line, and the `/` menu (with markdown
+shortcuts on each row). The placeholder reads `Write here, or type / for commands…`.
+Hovering any block shows a **drag handle** on the left margin: drag it to
+reorder paragraphs, headings, quotes, images, tables, or a single bullet
+within its list (including nested lists and checklists). Click and drag across
+blocks (or in the left margin) to select a range — `Backspace` / `Delete`
+removes the selected blocks, and dragging the handle or the highlight moves
+them. `Shift`-click extends the range. From the keyboard,
+`Cmd/Ctrl + Shift + ↑ / ↓` moves the block (or selected range) that has the
+cursor. The handle appears only while editing and on pointer devices. Studio chrome shows
+the sync status (**Saving… / Saved**). A version conflict shows the same
+compact **Use latest** / **Keep my version** bar as Tasks. The local draft
+stays in session recovery until the user chooses or a save confirms.
+
+## Related
+
+- Visual theme: `notebook`

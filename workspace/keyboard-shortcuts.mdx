@@ -1,0 +1,82 @@
+---
+title: "Keyboard shortcuts"
+description: "⌘K, C, and ? to move and create without leaving the keyboard."
+---
+
+The v1 shortcut set follows a Linear model: **few global shortcuts** and the palette for the rest.
+
+Open the cheatsheet with **?** (also in the user menu). Shortcuts are ignored while typing in an input, textarea, or editor.
+
+## Mental model
+
+| Shortcut | Action |
+| --- | --- |
+| **⌘K** / **Ctrl+K** | Command palette (search destinations, pages, and captures) |
+| **C** | Create in the current area (same sheet as the FilterBar button) |
+| **?** | Shortcut cheatsheet |
+| **/** | Focus the FilterBar search |
+| **⌘,** / **Ctrl+,** | User preferences |
+| **⌘⌥K** / **Ctrl+Alt+K** | Silent alias of **C** |
+
+## Create (C)
+
+**C** dispatches the quick capture of the current `ProfileAppArea`:
+
+| Area | What it opens |
+| --- | --- |
+| Today | Task |
+| Tasks | Task |
+| Calendar | Reminder (also **N** on the selected day) |
+| Activities | Activity |
+| Projects | Project |
+| Tags | Tag |
+| Finance | Transaction |
+| Goals | Goal |
+| Library | Item |
+| Nutrition | Meal log |
+| Notebook | Note |
+| Pomodoro | Timer |
+| Health | Check-in |
+
+Week plan and Agent have no area capture: **C** does nothing there.
+
+The palette (**⌘K** → Actions) lists one capture per allowed app. The current area's capture shows **C**.
+
+## This page
+
+Some surfaces already had local shortcuts; **?** documents them when you are in that area.
+
+**Tasks (inbox)**
+
+- **J** / **↓** and **K** / **↑** — move focus
+- **Enter** — open the focused task
+- **X** — selection mode
+- **Space** — mark the row in selection mode
+- **Esc** — exit selection
+
+**Calendar**
+
+- **M** / **W** / **D** — month, week, day
+- **T** — today
+- **C** / **N** — create a reminder on the selected day
+
+**Pomodoro (timer)**
+
+- **Space** — play / pause
+- **R** — reset
+- **N** — skip interval
+
+## Registry
+
+Source of truth in code:
+
+- `apps/app/shared/shortcuts/studio-shortcut-registry.ts` — data-only catalog
+- `apps/app/shared/shortcuts/studio-shortcuts-host.tsx` — global listener + **?** dialog
+- `apps/app/shared/quick-capture/studio-quick-capture-registry.ts` — what **C** opens
+- `apps/app/shared/components/use-studio-command-palette-items.tsx` — capture actions in ⌘K
+
+## Out of v1
+
+Complete, favorite, mark as paid, and J/K on other lists wait for a shared focus model. There are no customizable shortcuts or chords like `G` then `T` — **⌘K** covers the jump.
+
+See also: [Command palette](/workspace/command-palette).
