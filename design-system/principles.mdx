@@ -1,0 +1,105 @@
+---
+title: "Principles"
+description: "Ownership and composition rules for the Agata design system."
+---
+
+## 1. One system
+
+Every authenticated product consumes **`packages/ui`**. No per-feature forks of Button or Dialog.
+
+## 2. Composition over endless configuration
+
+Prefer composing `Card` + `Text` + `Button` over adding fifteen boolean props to one monster.
+
+## 3. Tokens, not magic
+
+| Use | Avoid |
+| --- | --- |
+| `colorVars['--color-accent']` / `colorVars['--color-text-secondary']` | a loose `#6366f1` in a feature |
+| `spacingVars` or Astryx spacing props | inconsistent magic margins |
+| `shadowVars['--shadow-med']` | invented box-shadows |
+
+## 4. Astryx for behaviour
+
+Wrappers encapsulate Astryx focus, keyboard, and accessibility behaviour while preserving the upstream prop and callback contract. Transparent wrappers are typed aliases or re-exports. A named adapter may translate only an exact missing boundary such as Hugeicons data, native form attributes, portal theme propagation, or third-party DOM. It must not add implicit visual defaults or transform callback values. Keep a native adapter only when Astryx cannot represent an established product interaction; do not reimplement a select out of generic elements.
+
+## 5. Clear ownership
+
+| Lives in `@agata/ui` | Does not live in `@agata/ui` |
+| --- | --- |
+| Visual wrappers | Business logic |
+| ThemeProvider / ThemeToggle | Product user preferences (except the toggle UI) |
+| Style utilities | Data hooks / server actions |
+| | Feature i18n copy |
+
+## 6. App themes belong to the product, not to generic marketing
+
+The official Astryx accent tokens are redefined by `[data-app-theme="finance"]` and friends. Never hardcode the finance accent inside tasks.
+
+## 7. Baseline accessibility
+
+- Labels on forms (the control's own `label`, or `Field` for a custom control)
+- Focus outline (`--focus-outline-*`)
+- Never rely on color alone (status + text)
+- Icon-only buttons: `aria-label`
+
+## 8. C2 — compact operational
+
+Authenticated UI uses a single default density level: **C2**, calibrated toward
+Linear-like operational density. Every screen maximises useful information per
+viewport without feeling cramped.
+
+`ThemeProvider` mounts Astryx `SizeProvider` at `sm` (28px). Item defaults to
+`density="compact"`. Popover padding is `--spacing-2`.
+
+| Element | C2 contract |
+| --- | --- |
+| Shell | `appPageShell`: padding 0.5rem / 0.75rem, gap 0.75rem / 1rem, 108rem ceiling |
+| Local stack | gap 0.5rem–0.75rem; 1rem only between major regions |
+| Toolbar | 1.75rem (28px) controls, `sm` / `xs` sizes |
+| Rows | padding-block 0.25rem–0.5rem; Item `density="compact"` |
+| Cards | padding 0.5rem–0.75rem, gap 0.5rem–0.75rem |
+| Overlay | Popover `--spacing-2`; menus `--spacing-1`; dialogs hug content with `max-height` |
+| Operational typography | 12–14px body; `--font-size-xl`–`--font-size-2xl` titles |
+| Hero metric | `--font-size-3xl`–`--font-size-4xl`, never display scale |
+| Operational chart | 12rem–14rem height with the value on hover |
+
+### Family audit — how C2 is enforced
+
+| Family | Compact rule | Enforcement |
+| --- | --- | --- |
+| Button, IconButton, TextInput, Selector, TabList, Date/Time/Number inputs, Typeahead, SegmentedControl, MoreMenu | Default control height 28px | `SizeProvider` `sm` in `ThemeProvider` |
+| Item / list rows | 4px block padding | Item `density="compact"` default |
+| Popover | 8px padding | `@agata/ui` Popover compact `xstyle` |
+| Dropdown menu | 4px menu padding | Astryx default |
+| FilterBar / collection chrome | 28px search and tools | FilterBar styles + SizeProvider |
+| Page shell | Tighter frame padding and stack gap | `appPageShell` |
+| Card | 0.5–0.75rem padding | C2; callers pass `padding` |
+| Dialog / Sheet | Hug content; `max-height`; sticky header/footer; body scrolls; primary action in the footer | Dialog `layoutHeight="auto"` + SheetBody/Footer |
+| Marketing CTAs | May be larger | Explicit `size="lg"` |
+
+Avoid 1.25rem/1.5rem padding, tall empty headers, inflated cards, and 1rem+ gap
+as a general default. Marketing, onboarding, document reading, immersive focus,
+or a visualisation that genuinely warrants it may break C2 locally.
+
+The Tasks and Finance screens exist to calibrate density and hierarchy, not as
+immutable templates. Coherence comes from the shared rules, not from making
+every page look the same.
+
+## Anti-patterns
+
+- Importing Astryx components directly from a feature instead of `@agata/ui`. The sole direct core import allowed in product styling is `@astryxdesign/core/theme/tokens.stylex`; component contracts stay behind the Agata surface.
+- Authoring `stylex.create` for flex, gap, padding, alignment, typography, or button/badge variants when Astryx props or `Stack` / `Layout` / `FormLayout` already cover the case.
+- Passing `stylex.props()` output to `xstyle`, literal `xstyle={{...}}`, or static inline styles instead of raw StyleX values.
+- Reintroducing Base UI, Radix, or a shadcn compound tree (Trigger/Content/Header/Footer)
+- Duplicating `ThemeProvider`
+- A barrel `index.ts` purely to re-export UI
+- `useCallback`/`memo` "just in case" (an app convention; not DS, but it affects UI)
+
+## When to propose a new component
+
+1. Is it reused across **2+** features?
+2. Is it generic visual/behavioural code?
+3. Can it live without knowing what a "task" or a "transaction" is?
+
+If yes → `packages/ui`. If not → keep it local to the feature.

@@ -1,0 +1,88 @@
+---
+title: "Astryx tokens and themes"
+description: "The official Astryx token contract, user theme, and app accents."
+---
+
+## Source of truth
+
+Agata uses the [official Astryx token catalog](https://astryx.atmeta.com/docs/tokens)
+without an alias layer. The runtime base is Astryx Neutral from
+`@astryxdesign/theme-neutral`; `packages/ui/styles/globals.css` only loads the
+vendor CSS, adds the product document baseline, and scopes app accents.
+
+Do not add Agata design-token files or new design custom properties. If Astryx
+does not expose a token for a one-off layout measurement, keep the value local
+and document the product contract instead of pretending it is a design token.
+
+## Consuming tokens in StyleX
+
+Import only the families a module needs from Astryx's StyleX token module:
+
+```tsx
+import * as stylex from '@stylexjs/stylex';
+import {
+  colorVars,
+  radiusVars,
+  shadowVars,
+} from '@astryxdesign/core/theme/tokens.stylex';
+
+const styles = stylex.create({
+  surface: {
+    backgroundColor: colorVars['--color-background-card'],
+    color: colorVars['--color-text-primary'],
+    borderColor: colorVars['--color-border'],
+    borderRadius: radiusVars['--radius-container'],
+    boxShadow: shadowVars['--shadow-low'],
+  },
+});
+```
+
+Available families are `colorVars`, `spacingVars`, `sizeVars`, `borderVars`,
+`focusVars`, `radiusVars`, `shadowVars`, `durationVars`, `easeVars`,
+`typographyVars`, `textSizeVars`, `fontWeightVars`, and `typeScaleVars`.
+Prefer an Astryx component prop before adding StyleX.
+
+## User theme
+
+- Light, dark, and system are controlled by `ThemeProvider` in `@agata/ui`.
+- The installed Astryx Neutral theme owns both color schemes through
+  `light-dark()`.
+- `ThemeToggle` and `ThemePreferenceToggle` are the only product toggles.
+- The preference may persist as `user_preferences.appearance`.
+
+## App accents
+
+App areas scope an accent with `data-app-theme`:
+
+```html
+<div data-app-theme="finance">…</div>
+```
+
+Each scope overrides only official Astryx variables such as `--color-accent`,
+`--color-on-accent`, `--color-accent-muted`, `--color-text-accent`,
+`--color-icon-accent`, and `--focus-outline-color`. Surfaces stay neutral.
+Light and dark values are expressed with `light-dark()` in one rule.
+
+See [App themes](/design-system/app-themes).
+
+## Focus
+
+Use `focusVars` (`--focus-outline-width`, `--focus-outline-style`,
+`--focus-outline-color`, and `--focus-outline-offset`). Never remove a visible
+focus treatment without an accessible replacement.
+
+## Domain color
+
+Use Astryx status tokens for success, warning, and error. Use the loaded,
+surface-specific categorical tokens (`--color-background-*`,
+`--color-border-*`, `--color-icon-*`, and `--color-text-*`) for data and domain
+distinctions. Do not reference data-domain variable names that the built Neutral
+theme does not emit. A color must not acquire a second, conflicting meaning
+through a local Agata variable.
+
+## Non-token variables
+
+CSS variables are still appropriate for runtime state and third-party
+integration boundaries—for example ProseMirror measurements, chart geometry,
+or a value written by JavaScript. They are not design tokens and must resolve
+their visual defaults from Astryx tokens where possible.

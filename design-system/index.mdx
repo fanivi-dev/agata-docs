@@ -1,0 +1,103 @@
+---
+title: "Design system"
+description: "Agata Design System: Astryx primitives, StyleX, tokens, and app themes."
+---
+
+**Astryx is the gold standard.** Product UI is built with
+**`@agata/ui`** on **[Astryx](https://astryx.atmeta.com)**
+(`@astryxdesign/core`, React 19 + StyleX). `@agata/ui` is the import
+surface for Astryx contracts. Intentional native or third-party adapters
+cover only contracts Astryx does not provide. Do not revive shadcn
+compound trees or Base UI.
+
+> **Linear precision × Apple materiality** — Astryx Neutral foundations with
+> per-app harmonised accents scoped by `data-app-theme`.
+
+## The golden rule
+
+Astryx contracts first. Import them through `@agata/ui/components/*` as a
+typed re-export, a named adapter, or an approved composite. Do not import
+`@astryxdesign/core/*` from `features/`. “Until that wrapper is gone” does
+not mean delete `@agata/ui`. Do not hand-roll markup when a wrapper exists.
+
+## Coherence contract
+
+Every authenticated screen shares the **C2 compact operational** density, the
+same surface hierarchy, and a single accent per domain. Pages may look different
+because they solve different problems; what never changes on local preference is
+spacing, control sizes, typography, radii, states, and token usage. See
+[Principles](/design-system/principles) and
+[Patterns](/design-system/patterns).
+
+## Map of this tab
+
+<CardGroup cols={2}>
+  <Card title="Principles" icon="sparkles" href="/design-system/principles">
+    Ownership, composition and anti-patterns.
+  </Card>
+  <Card title="Foundations" icon="layer-group" href="/design-system/foundations">
+    Color, type, space, radius, shadow, motion.
+  </Card>
+  <Card title="Tokens and theme" icon="swatchbook" href="/design-system/tokens-and-themes">
+    Light/dark and semantic tokens.
+  </Card>
+  <Card title="App themes" icon="palette" href="/design-system/app-themes">
+    data-app-theme: today, tasks, finance, weekplan…
+  </Card>
+  <Card title="Typography" icon="text" href="/design-system/typography">
+    Astryx Text and Heading, semantic types, colors, and truncation.
+  </Card>
+  <Card title="Components" icon="puzzle-piece" href="/design-system/components">
+    Catalog by family.
+  </Card>
+  <Card title="Select" icon="list" href="/design-system/select">
+    Direct Astryx Selector and MultiSelector contracts through Agata's package boundary.
+  </Card>
+  <Card title="Patterns" icon="blocks" href="/design-system/patterns">
+    Forms, empty, dialogs, loading, lists.
+  </Card>
+  <Card title="Paper workflow" icon="pen-nib" href="/design-system/workflow">
+    Design in Paper, implement, update Storybook.
+  </Card>
+  <Card title="Feature lifecycle" icon="diagram-project" href="/architecture/feature-lifecycle">
+    Create, edit or delete: docs, Paper, API, Eve, QA and Vercel.
+  </Card>
+</CardGroup>
+
+## Where the code lives
+
+| Path | Role |
+| --- | --- |
+| `packages/ui/components/` | Wrappers |
+| `packages/ui/styles/globals.css` | Astryx CSS entry, integration rules, and app-theme overrides |
+| `packages/ui/providers/theme.tsx` | ThemeProvider |
+| `@astryxdesign/theme-neutral` | Installed official light/dark theme |
+| `packages/ui/context/app-theme-context.tsx` | App themes |
+| `packages/rich-text` | ProseMirror editor (sibling of the DS) |
+
+## Web visual stack
+
+| Piece | Choice |
+| --- | --- |
+| Primitives | **Astryx** through `@agata/ui` |
+| Customization | Astryx props first (`variant`, `gap`, `type`, `color`, `endContent`); StyleX (`stylex.create` + `xstyle`) only for leftovers |
+| CSS | StyleX + official Astryx token variables |
+| Icons | `<Icon icon={…} />` (`@agata/ui/components/icon`) + `@hugeicons/core-free-icons` |
+| Toasts | Astryx Toast (`sonner.tsx` wrapper) |
+
+## Checklist when designing a screen
+
+1. Is there a Paper frame (Default and, where relevant, Empty / Loading / Error)?
+2. Does a component already exist in `@agata/ui`?
+3. Does it respect C2 density and its page family's anatomy?
+4. Official Astryx semantic tokens (`--color-background-card`, `--color-text-secondary`) instead of hex or local aliases?
+5. Correct `data-app-theme` on the shell?
+6. Empty / loading / error accounted for?
+7. Product copy authored in `en` and translated to `es`?
+8. Storybook (component and/or `pages/`) aligned with Paper?
+
+## Outside this tab
+
+- Product logic and routes → **General**
+- HTTP / schema → **API** / **Database**
+- Deep Next/Go architecture → Frontend/Backend *(draft; will change)*

@@ -1,0 +1,83 @@
+---
+title: "Selector"
+description: "Direct Astryx Selector and MultiSelector contracts through Agata's package boundary."
+---
+
+Agata exposes Astryx **Selector** for one value and **MultiSelector** for several values. The local module is a thin package boundary: feature code passes the final Astryx contract directly, with no shadcn-style compound tree or option extraction.
+
+## Correct imports
+
+```tsx
+import {
+  MultiSelector,
+  Selector,
+  SelectorOption,
+} from '@agata/ui/components/select';
+```
+
+Do not import `@astryxdesign/core/Selector`, `@astryxdesign/core/MultiSelector`, `@base-ui/react/select`, or Radix-only pieces from feature code.
+
+## Single value
+
+`Selector` is controlled. Give every option a stable string `value` and a searchable string `label`.
+
+```tsx
+<Selector
+  label="Priority"
+  value={priority}
+  onChange={setPriority}
+  placeholder="Choose priority"
+  options={[
+    { value: 'low', label: 'Low' },
+    { value: 'medium', label: 'Medium' },
+    { value: 'high', label: 'High' },
+  ]}
+/>
+```
+
+The control owns its visible label, description, required/optional state, disabled explanation, loading state, width, and status. Do not wrap it in `Field`. For compact property controls, keep the exact contextual label and add `isLabelHidden`.
+
+Use `hasClear` only when the state and callback genuinely accept `null`; otherwise use `string | undefined` for an empty placeholder state.
+
+## Rich options
+
+Keep `option.label` textual for search, type-ahead, and accessible naming. Use `renderOption` for a custom menu row and `renderValue` when the closed trigger needs the same richer presentation.
+
+```tsx
+<Selector
+  label="Account"
+  value={accountId || undefined}
+  onChange={setAccountId}
+  options={accounts.map((account) => ({
+    value: account.id,
+    label: account.name,
+  }))}
+  renderOption={(option) => (
+    <SelectorOption icon={AccountIcon} label={option.label ?? option.value} />
+  )}
+/>
+```
+
+Pass raw StyleX values created by `stylex.create()` to `xstyle`. Never pass the result of `stylex.props()`.
+
+## Multiple values
+
+Use `MultiSelector` directly for a controlled string array. Do not emulate it with `multiple` on another component.
+
+```tsx
+<MultiSelector
+  label="Tags"
+  value={tagIds}
+  onChange={setTagIds}
+  options={tags.map((tag) => ({ value: tag.id, label: tag.name }))}
+/>
+```
+
+## Review checklist
+
+- [ ] Direct `Selector` or `MultiSelector`; no compound Select slots
+- [ ] Exact contextual label, visible or hidden
+- [ ] Textual option labels and stable string values
+- [ ] `renderOption` / `renderValue` only for rich presentation
+- [ ] Controlled value uses the component's native shape
+- [ ] Raw StyleX value passed to `xstyle`
