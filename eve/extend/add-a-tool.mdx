@@ -1,0 +1,167 @@
+---
+title: "Add a tool"
+description: "The full step-scoped pattern and the rules that keep handlers, permissions, and approvals aligned."
+---
+
+Adding a tool is four domain files plus canonical catalog, presentation policy, and voice-dispatch metadata. Agata enforces a stricter pattern than Eve's minimum: every dynamic tool is resolved in `step.started`, so permissions and progressive activation are refreshed before each model call.
+
+Read the rules section before writing anything.
+
+## The four rules
+
+Eve rewrites every `execute`, approval, and `toModelOutput` callback of a `defineDynamic` file into a durable named callback. Agata binds the transformed callback to its catalog tool name before Eve registers it for replay.
+
+<Steps>
+  <Step title="Literal defineTool calls go in agent/tools/">
+    The transform plugin only processes files whose path contains `/tools/`. A helper in `agent/lib/` that **builds** a `defineTool(...)` is never transformed.
+
+    That is why `sectionToolset` takes a `build` **callback** instead of a map of already-built tools: the factory has to run inside the tools file.
+  </Step>
+
+  <Step title="The handler uses a block body, never a concise arrow">
+    ```ts
+    // ✅ gets transformed
+    'step.started': (_event, resolve) => {
+      return sectionToolset(resolve, 'work', () => ({ /* … */ }));
+    },
+
+    // ❌ the ENTIRE file is left untransformed
+    'step.started': (_event, resolve) =>
+      sectionToolset(resolve, 'work', () => ({ /* … */ })),
+    ```
+
+    The handler collector discards any handler without a `BlockStatement`. The repo guardian requires that the shape stay transformable.
+  </Step>
+
+  <Step title="Zero local declarations in the handler, and the parameter is named resolve">
+    Closure capture is a regular-expression name comparison over the handler's parameters and variables. If a name appears in an `execute` body, it is captured **and** left declared: `const { x } = __vars;` followed by the original `const x = …`, which is a `SyntaxError` at build.
+
+    Hence the shape: the handler has **a single statement**, `return sectionToolset(...)`, with no `const` or `let`. And the context parameter is named `resolve`, never `ctx`, because `ctx` appears in every `execute`.
+  </Step>
+
+  <Step title="Never close over the session token">
+    A durable scope could serialize captured variables with `JSON.stringify`. A captured `sessionToken` would be persisted.
+
+    That is why each handler re-reads it inside `execute` with `requireEveProfileAuth(ctx)`, instead of receiving it via closure.
+  </Step>
+</Steps>
+
+### The guardian
+
+```bash
+bun --filter app check:eve-tools
+```
+
+It rejects any resolver in `session.started` / `turn.started`, runs Eve's real transform over every file in `agent/tools/`, and fails if one that declares tools was not transformed or captures closures. **Always run it before treating a new tool as done.**
+
+```text
+  activities.ts        ok — 4 step fns, no captures
+  finance.ts           ok — 10 step fns, no captures
+  finance_recurring.ts ok — 3 step fns, no captures
+  …
+All 173 catalogued tools are source/voice aligned, step-scoped, and safe with eve@0.47.6.
+```
+
+## The pattern
+
+<Steps>
+  <Step title="Find the real API contract">
+    OpenAPI is **not** authoritative for write payloads. Look at:
+
+    1. `apps/api/internal/<domain>/ports/in/*.go` — the input shape.
+    2. `apps/api/internal/delivery/http/*.go` — sometimes defines its own body, different from ports. Finance is the example: creating a transaction takes `occurredAtMs`, updating it takes `occurredAt`.
+    3. Migrations, for valid enum values: CHECK constraints are the source of truth.
+
+    Also check which query params the handler actually parses. Several list endpoints only understand `cursor` and `limit` even though the domain has obvious filters. **Never expose a filter input that does nothing.**
+  </Step>
+
+  <Step title="Write lib/domains/<domain>/schemas.ts">
+    One `*Input` per tool and shared `*Output`s. Reuse `_shared/pagination.ts` for the list envelope and `_shared/time.ts` for `dateKeySchema`. Never redeclare a date key.
+  </Step>
+
+  <Step title="Write shape.ts">
+    A loose `GoXLike` type and a `trimXForModel(raw)` that returns `null` for rows without identity. Trim to what is actionable: drop audit timestamps, internal ids, blobs, and sort fields.
+
+    **One shaper per Go entity, not per tool.**
+  </Step>
+
+  <Step title="Write handlers.ts">
+    Exported async functions `(input, ctx)`. Each one opens with `requireEveProfileAuth(ctx)` and is the only thing that touches HTTP. Convert dates here: the tool speaks date keys, the API speaks whatever it speaks.
+  </Step>
+
+  <Step title="Write agent/tools/<domain>.ts">
+    ```ts
+    export default defineDynamic({
+      events: {
+        'step.started': (_event, resolve) => {
+          return sectionToolset(resolve, 'work', () => ({
+            list_things: defineTool({
+              description: 'One sentence, plus when to pick this and not the neighbor.',
+              inputSchema: listThingsInput,
+              outputSchema: thingListOutput,
+              execute: (input, ctx) => handleListThings(input, ctx),
+            }),
+          }));
+        },
+      },
+    });
+    ```
+  </Step>
+
+  <Step title="Register capability metadata and voice dispatch">
+    Add the name to `AGENT_TOOL_NAMES` and its file metadata in `agent/lib/capabilities/catalog.ts`, then add the executable schema/handler entry to `agent/lib/voice/tool-registry.ts`. The catalog owns group, section, mode, risk, intents, entity types, anchor/bulk classification, and optional skill. `check:eve-tools` rejects source/catalog/voice drift and group-budget violations.
+  </Step>
+
+  <Step title="Choose stable instructions or an on-demand skill">
+    Keep the section briefing to capability facts. Put a multi-step procedure or large dispatcher contract in a permission-aware `agent/skills/` definition; do not add long payload instructions to every turn.
+  </Step>
+
+  <Step title="Verify">
+    ```bash
+    bun --filter app check:eve-tools
+    bun --filter app type-check
+    ```
+
+    Provider-backed evals and live Go writes are a separate authorized lane. Add at least one routing/contract eval now; run the approved matrix before enabling a new progressive default.
+  </Step>
+</Steps>
+
+## Narrow vs dispatcher
+
+| Question | Choose |
+| --- | --- |
+| Does the user ask for it in natural language several times a week? | Narrow tool (`create_task`, `plan_meal`, …) |
+| Is it configuration, structure, or maintenance? | Operation on `manage_<domain>` |
+
+Do not invent an endpoint: look at `ports/in` and the HTTP handler. If the domain capability does not exist in Go, do not expose it (e.g. nutrition household). Next helpers Eve can call directly are fine when persistence still goes to Go (e.g. library oEmbed → `thumbnailUrl` on create).
+
+## Choose the result presentation
+
+Every canonical name must resolve in `agent/lib/presentation/policies.ts`.
+Choose the semantic kind from the authorized result shape, then choose its
+turn role:
+
+- `terminal` when the result normally answers the request;
+- `supporting` for resolver/search data that a later action can supersede;
+- `text` when prose is the actual answer, such as product documentation,
+  capability discovery, or identity context.
+
+Reuse a renderer family and extend its safe adapter only with fields confirmed
+by accepted input or output. Add English copy first and the matching Spanish
+keys in the same change. A new tool must not depend silently on the generic
+receipt: `bun --filter app check:eve-tools` fails catalog/presentation drift.
+Historic or invalid outputs may still fail closed to receipt/prose fallback.
+
+## When to ask for approval
+
+Set `approval` if the tool moves money, deletes data, or rewrites many rows at once.
+
+- `always()` for irreversible or financial work.
+- `approveDeleteInSection('work')` for deletes: denies immediately if the caller lacks delete permission in that section, instead of letting the API respond 403.
+- In a dispatcher, use `({ session, toolInput }) => …` and return `'not-applicable'` for a safe operation or the result of `approveDeleteInSection` — never invent an approval status.
+
+Every write must declare an output schema. The shared tool gate adds the common receipt schema to legacy handlers and normalizes durable replay output, but domain handlers should still return exact entity ids, deep links, changed fields, reversibility, and bounded per-item receipts when they know them.
+
+Gating a side effect is also how it stays safe against replays: a non-idempotent write behind an approval cannot fire on its own from a re-executed step.
+
+When a naturally idempotent endpoint exists, prefer it: `PUT .../checkins/upsert` is indexed by date, `PUT .../entity-tags` replaces the entire set.

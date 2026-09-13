@@ -1,0 +1,137 @@
+---
+title: "Changelog"
+description: "Notable changes to the Eve agent."
+---
+
+## Production turn recovery (2026-09-01)
+
+- Model resolvers no longer throw when `turn.started` has no message snapshot; scoring runs on `step.started` and falls back to the control model.
+- A terminal `session.failed` clears the stored Eve session, keeps chat history, and lets the next send start a new session. Revision conflicts remount instead of reloading the page.
+- Runtime is `eve@0.47.6` (latest release older than the install age gate). One Postgres pool per Next/Eve process. Terminal failures emit a content-free Sentry/console report.
+
+## Trust, durability, and recovery
+
+- Durable chats resume the owner-bound Eve session after refresh; cancellation waits for the durable terminal state, and concurrent history writes use compare-and-swap revisions.
+- Better Auth bearer credentials are no longer serialized in the Eve principal. Every active step resolves live authorization, and all Go writes carry API-level idempotency keys.
+- Text and voice share executable risk policy across all 173 tools. Sensitive voice actions consume a one-time, actor/chat/call/argument-bound server challenge.
+- EN/ES risk routing is monotonic and bounded; `control` remains the default until an authorized provider comparison passes.
+- Raw reasoning is excluded from new history and migration `000070` removes legacy reasoning rows. Content-free turn economics and optional negative-feedback detail share a pseudonymous correlation.
+- Explicit session limits, compaction, and a bounded new-chat handoff recover long sessions. Failed sends retain text and attachments; chat/history/credit errors expose truthful retry states.
+- Tool navigation is constrained to the current profile, and history search announces its active option while ignoring stale preview responses.
+- Provider eval profiles, run namespaces, and the evidence matrix are ready, but provider evals were not run. The next-capability scorecard selected neither document input nor rich-text mutation because demand evidence was insufficient.
+
+## Primary profile command layer
+
+- Canonical 173-tool capability catalog shared by text routing, voice metadata, static drift checks, and local metrics.
+- Progressive direct-tool exposure behind `EVE_TOOL_ROUTING_MODE`, with a small core, screen context, per-turn discovery, bounded groups, and a one-setting legacy rollback.
+- Six permission-aware operating skills for day/week planning, goal breakdown, capture/organize, financial review, and meal planning.
+- Five Week plan tools, including bounded multi-day create, linked Task/Activity completion, carry-over, trash/restore, repeat, and Calendar linking.
+- Bounded authorized profile search across Tasks, Projects, Notes, Activities, Goals, and Library; Goals, Activities, and Library now have server-side search.
+- Common durable write receipts, expanded orchestration eval matrix, and local per-tool/group routing/latency/duplicate/receipt metrics.
+- Tool-specific result components remain the next separate client plan.
+
+## Complete recipes in two phases
+
+- `create_recipe` creates the header first and returns the ID; Eve then calls `update_recipe` with that `recipeId`.
+- `update_recipe` can add ingredients, ordered steps, and tools in a single call, and also edit name, description, or servings.
+- Rows are added through the existing child endpoints and the ones the recipe already had are kept. Text and voice share the same required sequence.
+
+## Library URL preview (`fetch_link_metadata`)
+
+- New tool `fetch_link_metadata`: oEmbed (same Next helper as Fetch Preview in the UI) → title, thumbnail, `suggestedKind`.
+- `create_library_item` and `bulk_create_library_items` auto-fill `thumbnailUrl` / source / creator when oEmbed responds and the agent does not send them.
+- Persistence remains in Go as a remote URL (no Blob). Total narrow+dispatcher: **146**.
+
+## End-to-end utility (privacy, receipts, memory, context, voice)
+
+- New chats are **private**; profile share is read-only; `eve_user_memories` + `manage_eve_memory` with approval.
+- Action receipts on writes, tool renderers, undo only on restores, reasoning hidden in production, per-response feedback.
+- Screen context + personalized empty prompts (`clientContext.screen`, ephemeral).
+- Voice parity (instructions, receipts, structured events).
+- Utility evals in `evals/utility/`; local metrics `bun --filter app eve:metrics`.
+- Doc: [Utility](/eve/runtime/utility). Total narrow+dispatcher: **144** (+ `manage_eve_memory`).
+
+## In-app proactivity removed
+
+- In-app proactivity was removed (briefings / weekly review / follow-ups), routes `/agent/briefings` and `/agent/settings`, API `…/agent/proactive-settings`, and tables `eve_proactive_*` (migration `000043`).
+
+## Debt and account detail (143 tools)
+
+- New reads in `finance.ts`: `get_finance_account`, `get_finance_debt`, `list_finance_debt_payments`.
+- New write with approval: `settle_finance_debt` (marks settled or reopens via a clearable `settledAt`).
+- `list_debts` hides settled debts unless `includeSettled: true`; account shapes expose `statementDay`, `isPrimary`, and `maskLast4`.
+- Owner tool total: **143**.
+
+## Hybrid product coverage (139 tools)
+
+**Narrow + dispatcher** architecture to bring Eve close to full product coverage; the UI becomes review / confirmation / analysis.
+
+**Foundations**
+
+- `runOperation` helper in `lib/domains/_shared/dispatch.ts`.
+- `EveCacheOp` expanded (`health.routines`, `pomodoro.sessions`, `workspace`).
+- Handoff tool `open_workspace_view` (deep links via `#/shared/navigation/paths`).
+
+**Domains**
+
+- Nutrition: recipes, meal plans / slots, `adjust_inventory_quantity`, `toggle_shopping_item`, `manage_nutrition`.
+- Finance: savings, budgets write, trend, search, `manage_finance` (accounts, recurring, debts, groups, planner).
+- Work: duplicate/bulk/trash/comments, project links/comments, delete reminder, pomodoro sessions, `manage_work`.
+- Library: collections, soft-delete/restore, subitems create, `manage_library`.
+- Health: session detail/edit, routines, metrics, `manage_health`.
+- Daily / Goals: activity logs, note groups, milestones/links, `manage_daily`, `manage_goals`.
+- Platform (read-only + feedback): overview, invitations, usage, credits, audit logs, connections, `submit_feedback`.
+
+**Still out of scope**
+
+- Document bodies, hard-delete of roots, billing/roles write, images.
+
+Owner tool total: **139**.
+
+## Meal journal (nutrition)
+
+- New tools in `nutrition_meals.ts`: `list_meal_logs`, `create_meal_log`, `update_meal_log`, `soft_delete_meal_log`.
+- `soft_delete_meal_log` requests approval with `approveDeleteInSection('nutrition')`.
+- `update_meal_log` only exposes `mealType` / `title` / `dateKey` (what the repo actually updates).
+- Owner tool total: **82**.
+
+## Finance categories and recurring rules
+
+- `list_transactions` exposes `recurringRuleId` when the row comes from a rule.
+- New tools (no approval): `list_recurring_rules`, `set_transaction_category`, `set_recurring_rule_category` in `finance_recurring.ts`.
+- Categorize the month: list → `create_tag` (`domainScope: finance`) without duplicating → category on the tx and, if it is recurring, on the rule with `applyToCurrentMonth`.
+- Owner tool total: **78**.
+
+## Tools by domain and section gate
+
+Expansion from 11 to **75 tools** covering 13 domains, with permissions and approvals.
+
+**Tools**
+
+- New domains: notebook, activities, goals, finance, health, nutrition, library, tags, pomodoro, task subitems and comments, plus platform (`whoami`, `list_workspace_members`).
+- Calendar gains `get_agenda_month`, `list_reminders`, `create_reminder`, `update_reminder`.
+- Projects gain `get_project`, `create_project`, `update_project`, `archive_project`.
+- The original 11 tools migrate to the new pattern **with the same name**. No user-visible changes.
+
+**Architecture**
+
+- One `defineDynamic` per domain in `agent/tools/`, gated by the member's section. Tools from a section that is not granted never reach the prompt.
+- New layer `agent/lib/domains/<domain>/{schemas,shape,handlers}.ts`. Adding a domain is mechanical.
+- `verifyWorkspaceAccessDetailed` no longer drops `role` and `allowedSectionIds`; `better-auth.ts` stamps them on the principal.
+- `instructions.md` is trimmed to identity and global rules; the per-section briefing becomes dynamic in `instructions/20-sections.ts`, reading the same sections as the gate.
+
+**Approvals**
+
+- `create_transaction`, `update_transaction`, and `add_debt_payment` always request approval.
+- `soft_delete_task` and `bulk_soft_delete_tasks` request it and also deny if delete permission is missing in the section.
+- Chat gains Approve / Deny buttons on tool cards. Tool status labels are no longer hardcoded in English.
+- Responding to an approval **does not** reserve a new credit.
+
+**Verification**
+
+- `bun --filter app check:eve-tools`: runs Eve's transformation over each tools file and fails if any would not survive a replay.
+- `apps/app/evals/`: five evals for tool selection, gate, and approval.
+
+## Eve v1
+
+Profile AI chat on the Eve runtime, with streaming, profile-scoped persistence, monthly credits, and 11 tools for tasks, projects, and agenda.
