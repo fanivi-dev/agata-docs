@@ -1,0 +1,139 @@
+---
+title: "API changelog"
+description: "Relevant changes to Agata's HTTP contract."
+---
+
+We treat the changelog as first-class documentation: visible, dated, and linked.
+
+## 2026-09-11
+
+### Public share rows
+
+- `GET /p/{handle}/plans` lists meal plans the viewer may see (same allowlist as recipes). Catalog on `/@handle` includes that list.
+- Nested public GETs (`/recipes/{id}`, `/plans/{id}`, `/library/{id}`, `/collections/{id}`, `/goals/{id}`, `/meals/{dateKey}`) honor row visibility even when the profile catalog is private. `GET /p/{handle}` and list endpoints still 404 for a private profile unless the viewer is a member. Follow still requires a public profile.
+
+## 2026-09-10
+
+### Profiles — unique name
+
+- Create and rename derive `handle` from `name` and reject a taken or reserved slug (`DUPLICATE_RESOURCE` / `VALIDATION_ERROR`). No `_2` suffix.
+- Team app URLs use `/profiles/:handle`. A UUID path redirects to the handle. HTTP stays `/api/profiles/:profileId`.
+
+### Profiles — page visibility
+
+- `ProfilesProfile.visibility`: `private` \| `public` (default `private` on create).
+- `PATCH /profiles/{profileId}` accepts `visibility`.
+- Public `GET /p/{handle}` and nested public reads return 404 when the profile is private and the viewer is not a member. Followers who are not members get 404. `POST /p/{handle}/follow` is the same miss.
+- Migration `000080_profile_visibility`. Additive. Local migrate-up applied 2026-09-10 (79 → 80).
+
+### Workspace → Profile rename
+
+- Tenancy HTTP: `/api/workspaces` → `/api/profiles`. Domain routes: `/api/{domain}/workspaces/:workspaceId` → `/api/{domain}/profiles/:profileId`.
+- JSON: `workspaceId` → `profileId`.
+- Public HTTP: `/api/profiles/:handle` → `/api/p/:handle`. Browser `/@handle` unchanged; RSC `/p/[handle]`.
+- Team app: `/workspaces/:workspaceId` → `/profiles/:handle` (UUID URLs redirect). Legacy 308: `/workspaces` → `/profiles`, `/workspaces/:id/*` → `/profiles/:id/*`. API stays `/api/profiles/:profileId`.
+- Schema: migration `000079` (written, not applied). Tables `workspaces` → `profiles`, `workspace_members` → `profile_members`; column `workspace_id` → `profile_id`.
+- Breaking for internal clients that still call `/workspaces` paths or send `workspaceId`.
+
+### Profiles — share catalog
+
+- Public reads: `GET /p/{handle}/library`, `GET .../library/{itemId}`, `GET .../collections`, `GET .../collections/{collectionId}`, `GET .../goals`, `GET .../goals/{goalId}`, `GET .../meals`, `GET .../meals/{dateKey}`.
+- Schemas: `PublicLibraryItem`, `PublicLibraryCollection`, `PublicGoal`, `PublicMealDay`, `PublicMealLog`, `PublicPlace`.
+- Member create/update accept `visibility` on library items/collections, goals, and meal logs (`members` \| `followers` \| `public`, default `members`).
+- Migrations `000076`–`000078`. Additive. Local migrate-up applied 2026-09-10 (75 → 78). Public GETs are not membership-gated; miss is 404. Same-day rename moved these public prefixes from `/profiles/{handle}` to `/p/{handle}`.
+
+## 2026-09-09
+
+### Profiles
+
+- Public reads: `GET /profiles/{handle}`, `GET .../recipes`, `GET .../recipes/{recipeId}`, `GET .../plans/{planId}`.
+- Follow: `POST` / `DELETE /profiles/{handle}/follow` (signed-in; not membership).
+- Schemas: `PublicProfile`, `PublicRecipe`, `PublicRecipeDetail`, `PublicMealPlan`.
+- Migration `000073_profile_follows_nutrition_visibility`. Additive. Public GETs are not membership-gated; miss is 404.
+
+### Places
+
+- New domain: `GET/POST /places/workspaces/{workspaceId}/places`, `GET/PATCH/DELETE .../places/{placeId}`.
+- Schemas: `GeoPlace`, `CreatePlaceInput`, `UpdatePlaceInput`. OpenAPI tag **Places**.
+- Migration `000074_places` (table) and `000075_domain_places` (product `place_id`s). Additive. Membership-scoped; no app-section gate.
+- Query `ids` lists specific places (skips cursor pagination).
+
+## 2026-08-16
+
+### Week plan — Later (`dateKey` optional)
+
+- `WeekPlanItem.dateKey` and `WeekPlanCreateItemInput.dateKey` are nullable. `null` / omitted = a **Later** item (no day) for that week.
+- `PATCH` / reorder: `dateKey: ""` moves the item to Later. A `YYYY-MM-DD` day places it.
+- Later does not appear in Calendar, does not count toward progress, and cannot be marked done or added to the calendar until it has a day.
+- Migration `000052_week_plan_later`. Additive (nullable).
+
+## 2026-08-02
+
+### Week plan (`week-plan`)
+
+- New domain: `GET /week-plan/workspaces/{workspaceId}/by-week`, `POST .../items`, `PATCH`/`DELETE .../items/{itemId}`, `POST .../items/reorder`.
+- Schemas: `WeekPlanByWeek`, `WeekPlanItem`, create/update/reorder inputs. OpenAPI tag **Week plan**.
+- Migration `000044_week_plan` (`week_plans`, `week_plan_items`). Additive.
+- Distinct from Nutrition's meal planner (`/nutrition/.../meal-plans`).
+
+### Provenance of shopping items
+
+- `NutritionShoppingItem` now exposes `unit`, `source`, `collectionId`, `recipeId`, `inventoryItemId`, and `checkedAt`. The columns already existed; the response omitted them.
+- `NutritionCreateShoppingItemInput` accepts `source` (`manual` | `recipe` | `low_stock`), `recipeId`, and `inventoryItemId`, so the pantry can link what it sends to shopping.
+- `PATCH .../shopping/items/{itemId}` stamps `checked_at` when moving to `done` and clears it when returning to `pending`.
+- Additive; no existing field changes shape.
+
+## 2026-08-01
+
+### Removal of Eve proactivity / briefings
+
+- Removed: `GET`/`PATCH /workspaces/{workspaceId}/agent/proactive-settings` and `POST .../agent/proactive-settings/mark-read`.
+- Removed: schemas `EveFollowupRules`, `EveProactiveSettings`, `EveProactiveSettingsPatch`.
+- In-app proactivity (briefings, weekly review, follow-ups) is no longer part of the product.
+
+## 2026-07-30
+
+### Platform contract (session and profiles)
+
+- Non-breaking correction of response schemas for session, Connections, profiles, access, members, and invitations.
+- The OpenAPI contract now describes the real envelopes of those responses; no HTTP handler changes.
+
+## 2026-07-28
+
+### Bulk create (partial success)
+
+- New `POST .../bulk-create` for primary list entities (tasks, projects, tags, reminders, timers, notes, note groups, activities, goals, library items, transactions, meal logs/recipes/shopping/inventory/meal plans, health check-ins/sessions/metric entries).
+- Contract: body `{ <plural>: CreateInput[] }`, response `201` `{ data: { ids, errors: [{ index, message }] } }`, cap **50**.
+- Additive; no bulk delete.
+
+## 2026-07-15
+
+### Uncached rich-text documents
+
+- Task **detail** no longer includes the document body as the editor source.
+- Clients must use **`GET/PUT …/document`** (tasks and notes) always fresh.
+- Monorepo helpers: `task-document.ts`, `note-document.ts`.
+
+**Breaking for internal clients** that read `detail.document.content` from the detail cache.
+
+### API docs (this tab)
+
+- Quickstart, authentication, expanded errors, guides, and domain map.
+- OpenAPI copied to `apps/docs/openapi/agata-v1.yaml` for the Docs7 playground.
+
+## Format for future entries
+
+```md
+## YYYY-MM-DD
+
+### Short title
+
+- What changed
+- Impact (breaking / additive)
+- Affected endpoints
+- Link to PR or migration
+```
+
+## Mental subscription
+
+After every PR that touches `handler.go` or `openapi.yaml`, add a line here **in the same PR**.

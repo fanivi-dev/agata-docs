@@ -1,0 +1,143 @@
+---
+title: "Conventions"
+description: "JSON envelope, IDs, pagination, money, dates, and domain paths."
+---
+
+Stable conventions help humans and LLMs generate correct clients.
+
+## Prefix and versioning
+
+- API prefix: **`/api`**
+- There is no external multi-major versioning today; breaking changes are documented in the [changelog](/api/changelog).
+
+## Success envelope
+
+Go type: `dto.Response[T]`.
+
+```json
+{
+  "data": { },
+  "request_id": "550e8400-e29b-41d4-a716-446655440000",
+  "meta": {
+    "next_cursor": "…",
+    "has_more": true
+  }
+}
+```
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `data` | T | Endpoint payload |
+| `request_id` | string | Correlation; also in the `X-Request-ID` header |
+| `meta` | object? | Cursor pagination when applicable |
+
+## Error envelope
+
+```json
+{
+  "error": {
+    "code": "VALIDATION_ERROR",
+    "message": "title is required",
+    "limit_key": "members_per_profile",
+    "limit": 150,
+    "required_plan": "pro"
+  },
+  "request_id": "…"
+}
+```
+
+`limit_*` and `required_plan` only on plan errors. Details: [Errors](/api/errors).
+
+## Identifiers
+
+| Entity | Format |
+| --- | --- |
+| Platform `users.id`, `profiles.id` | UUID |
+| Domain entities | UUID |
+| Better Auth `user.id` | string (TEXT) |
+
+Always send IDs as UUID strings in JSON/paths.
+
+## Profile scope
+
+Dominant pattern:
+
+```txt
+/api/{domain}/profiles/{profileId}/...
+```
+
+Examples:
+
+- `/api/tasks/profiles/{profileId}`
+- `/api/finance/profiles/{profileId}/transactions`
+- `/api/notebook/profiles/{profileId}/notes/{noteId}/document`
+
+Exceptions: `/users/me/*`, `/profiles` (user listing), public `/p/:handle`, health, internal.
+
+## HTTP methods
+
+| Method | Use |
+| --- | --- |
+| `GET` | Read |
+| `POST` | Create / actions (ensure, restore, pin…) |
+| `PATCH` | Partial update |
+| `PUT` | Replace / upsert (e.g. rich-text document, budgets) |
+| `DELETE` | Delete (often soft) |
+
+## Money
+
+- Amounts in **cents** (integers), not floats.
+- Currency follows account / profile settings (see the finance domain).
+
+```json
+{
+  "amountCents": 1999
+}
+```
+
+## Dates
+
+| Type | Format | Use |
+| --- | --- | --- |
+| Instants | RFC3339 / TIMESTAMPTZ ISO | `createdAt`, `updatedAt` |
+| Local day | `YYYY-MM-DD` | check-ins, meal logs, finance day keys (`dateKey`, `dueDateKey`) |
+
+## Pagination
+
+Large lists use a **cursor** by default:
+
+- Request: cursor query param (name per endpoint; see OpenAPI)
+- Response: `meta.next_cursor`, `meta.has_more`
+
+Some listings (e.g. inbox tasks) also accept a **numbered page** when `page` (+ `pageSize`) is sent:
+
+- Response: `meta.page`, `meta.page_size`, `meta.total`, `meta.total_pages`, `meta.has_more`
+
+Go utilities: `internal/shared/pagination/`.
+
+## Content-Type
+
+```http
+Content-Type: application/json
+Accept: application/json
+```
+
+## Idempotency and conflicts
+
+- Duplicate resources → `409` / `DUPLICATE_RESOURCE` when applicable.
+- Rich-text documents use optimistic **version** (`expectedVersion`) to avoid lost updates.
+
+## Naming
+
+- Paths in **English**, kebab/restful.
+- Domain payloads in **camelCase** (`profileId`, `amountCents`, `createdAt`).
+- The cross-cutting envelope keeps **snake_case** (`request_id`, `next_cursor`,
+  `limit_key`). Do not mix both styles at the same payload level.
+
+## Where not to invent
+
+If you are unsure of the exact body shape, open:
+
+1. The operation in [OpenAPI](/api/openapi)
+2. The handler in `delivery/http/*_handlers.go`
+3. The client in `apps/app/services/<domain>/`
