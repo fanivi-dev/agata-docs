@@ -1,0 +1,66 @@
+---
+title: "Typography"
+description: "Astryx Text and Heading through Agata's design-system boundary."
+---
+
+## Scale
+
+Use Astryx `Text` and `Heading` semantic props first. Raw sizes come from
+`textSizeVars` (`--font-size-4xs` … `--font-size-5xl`) and semantic type
+combinations come from `typeScaleVars` (see [Foundations](/design-system/foundations)).
+
+`@agata/ui/components/text` exports Astryx `Text` and `Heading`. Prefer the
+semantic `type` and heading `level` axes; explicit sizes are for metrics and
+other cases where the semantic scale does not fit.
+
+Use the semantic Astryx type scale for line height and tracking. Do not create
+feature-local typography variables or utility scales.
+
+## The `Text` component
+
+`@agata/ui/components/text` — Astryx API:
+
+| Prop | Typical options |
+| --- | --- |
+| `type` | body, large, label, supporting, code, display-* |
+| `color` | Astryx primary, secondary, accent, disabled, placeholder, and inherit; the Agata boundary preserves status/trend names by mapping them directly to official Astryx color tokens |
+| `size` / `weight` | Explicit overrides when a semantic type is insufficient |
+| `maxLines` | Line clamp with the built-in truncation tooltip |
+| `hasTabularNumbers` | Aligned numeric columns and KPIs |
+| `xstyle` | StyleX layout/customization owned by the caller |
+
+Agata preserves native paragraph flow: `Text as="p"` defaults to
+`display="block"`, while the default `span` remains inline. An explicit
+`display` prop always takes precedence.
+
+```tsx
+import { Heading, Text } from '@agata/ui/components/text';
+
+<Heading level={1}>Title</Heading>
+<Text as="p" type="supporting">Secondary description</Text>
+<Text color="warning" maxLines={1}>Needs attention</Text>
+```
+
+## Headings
+
+- `Heading` renders semantic `h1`–`h6` elements and uses the themed type scale.
+- Use `accessibilityLevel` only when a reusable component's visual level must
+  differ from its document outline.
+- Font families come from Astryx `typographyVars`; do not introduce a local editorial font token.
+
+## Numbers
+
+Use `hasTabularNumbers` on `Text` for finance tables and KPIs.
+
+## Recommended hierarchy (product screen)
+
+| Role | Recipe |
+| --- | --- |
+| Page title | `Heading level={1}` |
+| Section | `Heading level={2}` or `level={3}` according to the outline |
+| Body | `Text type="body"` |
+| Meta / helper | `Text type="supporting"` or `color="secondary"` |
+
+## i18n
+
+The DS does not translate: **copy** lives in feature messages (`en` is the source, `es` the translation). The DS only styles.

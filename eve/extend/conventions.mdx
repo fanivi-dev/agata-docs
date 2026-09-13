@@ -1,0 +1,90 @@
+---
+title: "Conventions"
+description: "Names, descriptions, output shapes, and the budget rules that keep the tool surface healthy."
+---
+
+## Names
+
+- Tool name in `snake_case`, `verb_noun` form: `create_task`, `list_finance_accounts`.
+- Read prefixes: `list_` (collections), `get_` (one or a scalar), `search_` (free text).
+- Write verbs are literals: `create_`, `update_`, `delete_`, plus domain-specific ones (`snooze_`, `log_`, `archive_`).
+- The name must be unique across **all** sections: two resolvers with the same key throw.
+- Files under `lib/` are kebab-case, like the rest of the repo. Only tool names are snake_case, because that is what the model sees.
+
+## Descriptions
+
+A tool's schema is forwarded on **every** model call. Instructions live in the cached prefix of the system prompt. Therefore:
+
+- One sentence of what it does, plus a disambiguator for **when to pick this and not the neighbor**.
+- Domain context goes in `instructions/20-sections.ts`, not here.
+- Do not enumerate every field it returns: that is what `outputSchema` is for.
+
+Good:
+
+> `List profile tasks with filters (status, priority, due range, project, openOnly, assignedToMe). Use search_tasks for free-text; list_focus_tasks for "what should I prioritize".`
+
+Bad: 380 characters listing every source the tool aggregates. That belongs in the section briefing.
+
+## `.describe()` on fields
+
+Only where the semantics cannot be inferred from the name and type:
+
+| Field | Why |
+| --- | --- |
+| `amountCents` | Integer cents, never decimals |
+| `assignedTo: []` | An empty list **clears** assignees |
+| `set_entity_tags.tagIds` | **Replaces** the entire set |
+| `archive_project` | **Toggles**, does not accept a target state |
+| `dueDateKey` | `YYYY-MM-DD` in the user's timezone |
+
+A `.describe('The name')` on a `name` field is pure cost.
+
+## Output shapes
+
+- Every list returns the same envelope: `{ itemCount, hasMore, nextCursor?, items }`, via `listOutput` and `listEnvelope`.
+- `limit` always `min(1).max(50)` with `default(25)`.
+- Never return a raw Go DTO. One shaper per entity.
+- Precompute what the model would have to derive: `workMinutes` next to `workSeconds`, `net` next to `incomeCents`/`expenseCents`, formatted amounts next to the cents.
+- `toModelOutput` when the raw payload can exceed ~1 KB or brings something the model cannot act on. The channel still receives the full object, so the chat card loses nothing.
+
+## Dates
+
+**Every date input on every tool is a `YYYY-MM-DD` date key.** The Go API asks for four different shapes; conversion is the handler's job, with `lib/domains/_shared/time.ts` and the session timezone.
+
+Exposing an epoch-ms or RFC3339 in an `inputSchema` is the fastest path to a silent wrong-day bug.
+
+Same for derivable values: `todayLocalDateKey`, `todayDateKey`, and similar are filled by the handler. They are never asked of the model.
+
+## Errors
+
+Throw `Error` with an actionable message. Eve exposes it as `output-error` and the model can pass it through.
+
+`eveGoFetch` already normalizes Go API errors to `body.error.message`, so an API failure arrives with its real message.
+
+## Budget
+
+| Rule | Limit |
+| --- | ---: |
+| Tools per domain file | ≤ 8–12; split into a second file in the same section |
+| Total tools for an owner | ~150 (hybrid narrow + dispatcher); avoid 250+ flat |
+| Description length | ~1 sentence |
+
+If a domain needs to grow: **narrow tools** for the frequent cases and a `manage_<domain>` with `resource` + `operation` + `data` for the long tail (`lib/domains/_shared/dispatch.ts`). Document the `data` shape in the section briefing, not in the tool description.
+
+## Dispatcher
+
+```ts
+manage_nutrition: defineTool({
+  inputSchema: manageNutritionInput, // { resource, operation, data? }
+  outputSchema: dispatchOutput,
+  approval: ({ session, toolInput }) => {
+    if (toolInput?.resource === 'mealPlanSlots' && toolInput.operation === 'delete') {
+      return approveDeleteInSection('nutrition')({ session });
+    }
+    return 'approved';
+  },
+  execute: (input, ctx) => handleManageNutrition(input, ctx),
+}),
+```
+
+In the handler: a `Record<string, OperationEntry>` table indexed by `` `${resource}.${operation}` `` and `runOperation(table, input, ctx)`.

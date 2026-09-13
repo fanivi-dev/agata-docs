@@ -1,0 +1,77 @@
+---
+title: "Paper → code → Storybook workflow"
+description: "How to design in Paper, implement in the monorepo, and keep Storybook current."
+---
+
+Every new or redesigned product surface follows **three steps, in this order**. Paper is the source of visual intent; code and Storybook are the implementation and the playground.
+
+**Agents:** do not open Paper, edit Paper, update Storybook source, or run Storybook unless the user explicitly asked. Implement from `DESIGN.md` and existing wrappers.
+
+Skip Paper only when the change is not visual (copy/i18n, a logic bug, a token rename with no layout impact). Do not invent a visual language in code.
+
+<Steps>
+  <Step title="Design in Paper">
+    Open the file in **Paper Desktop** ([paper.design](https://paper.design)). Opening a file starts the local MCP at `http://127.0.0.1:29979/mcp`.
+
+    Canonical **Agata** file: Cover, Tokens, Icons, UI, **Workflow** (feature lifecycle), Patterns, **Layout** (app chrome and page templates), Themes, Accessibility, Content, and product pages (Today, Week plan, Tasks, Goals, Finance, …).
+
+    Under **UI**, artboards follow the Storybook folders: Actions, Data, Disclosure, Display, Feedback, Forms, Layout, Navigation, Overlays, Typography. Each row is a named cloneable (`Button / default`).
+
+    **UI holds only primitives that `packages/ui` ships.** Anything composed in `apps/app/shared/components/` — `FilterBar`, `CalmEmpty`, `GuidedSection`, `CollectionBanner`, `PaginationControls`, Stream — is documented on **Patterns**, even when Storybook files it under a component folder.
+
+    - Flex frames that already respect **C2** density, the page family, and a single app accent.
+    - The states the product actually has: Default, Empty, Loading, Error.
+    - Desktop by default; add a narrow frame when the layout really changes.
+    - Semantic tokens and `@agata/ui` pieces. No parallel kit, no one-off hex.
+    - Paper's HTML/JSX is **reference only**. It is never pasted into `apps/app` or `packages/ui`.
+  </Step>
+  <Step title="Implement in code">
+    Translate the frame into the existing stack.
+
+    - Product screen → `apps/app/features/<product>/` + `#/services/{domain}`.
+    - Reusable chrome → `packages/ui` (only once a second caller needs it).
+    - `@agata/ui` wrappers and layout helpers (`appPageShell`, `FilterBar`, `CollectionBanner`, overlays) **before** loose classes.
+    - Visual contract: `DESIGN.md` §0. Copy authored in `en`, then translated to `es`.
+  </Step>
+  <Step title="Update Storybook">
+    A visual change is not done until Storybook matches the Paper frames.
+
+    ```bash
+    bun run dev:storybook
+    ```
+
+    Review locally. Automated Storybook Vercel builds are disabled, so [storybook.agata.in](https://storybook.agata.in) is not current.
+
+    - New or touched DS component → `apps/storybook/stories/<category>/` (`autodocs`, StyleX variants, `Default` plus meaningfully different variants).
+    - Product screen → `apps/storybook/stories/pages/<product>/<screen>/` (`Default` / `Empty` / `Loading` / `ErrorState`). **Never** import `apps/app` or `#/*`.
+    - Delete stories and variants the change leaves dead.
+  </Step>
+</Steps>
+
+## Agents and MCP
+
+Paper Desktop must have **a file open**. If MCP does not respond, open one and retry; do not guess the layout.
+
+Agents read the canvas (`get_screenshot`, `get_jsx`, `get_computed_styles`, tree helpers) and only write when asked to iterate on the design. Local configuration:
+
+| Client | Where |
+| --- | --- |
+| Grok | `.grok/config.toml` → `http://127.0.0.1:29979/mcp` |
+| Cursor | `.cursor/mcp.json` → the same URL |
+
+Paper docs: [paper.design/docs/mcp](https://paper.design/docs/mcp).
+
+## What this workflow is not
+
+- Paper does not replace `@agata/ui`. The canvas proposes; the package implements.
+- Storybook `pages/` stories are visual mocks, not the real screen.
+- A tweak to an existing control does not require a new Paper file — but it does require the story to stay aligned when the look changes.
+- It does **not** cover schema, API, Eve, catalog, seed, QA or Vercel. That lives in [Feature lifecycle](/architecture/feature-lifecycle).
+
+## Related
+
+- [Feature lifecycle](/architecture/feature-lifecycle)
+- [Contributing to the design system](/design-system/contribution)
+- [Principles](/design-system/principles)
+- [Patterns](/design-system/patterns)
+- Operational guide for agents: `DESIGN.md` §6
