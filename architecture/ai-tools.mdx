@@ -1,0 +1,26 @@
+---
+title: "AI tools catalog"
+description: "Public catalog of repo skills, vendor guides, Cursor plugins, and rules used to work in Agata."
+---
+
+The public page `/ai-tools` lists the operating kit agents and contributors use in this repo. It is not an Eve product surface and it is not indexed into Eve's product-docs corpus.
+
+## What it shows
+
+| Group | Source |
+| --- | --- |
+| Repo skills | `.agents/skills/` |
+| Vendor skills | `.agents/vendor/` |
+| Cursor plugins | Marketplace / MCP tools wired to the workspace; unused ones stay off in `.cursor/settings.json` |
+| Cursor rules | `.cursor/rules/` |
+| Fanivi playbooks | `.agents/skills/fanivi-mode/playbooks/` |
+
+Copy lives in `messages/{en,es}/AiTools.json`. Catalog IDs and paths live in `features/marketing/domains/ai-tools/ai-tools-catalog.ts`.
+
+## How agents pick a skill
+
+`AGENTS.md` is the constitution. Agents read Fanivi plus **one** playbook when the work is multi-file, a write playbook applies, or independent slices can run in parallel. Open at most one domain skill (StyleX or one vendor tree). Paper, Storybook, and the browser stay off unless the user named them.
+
+## Route
+
+`/ai-tools` is a public marketing route. The proxy only sends known product prefixes (`isProtectedPath` in `apps/app/shared/lib/auth/proxy-route-guards.ts`) to sign-in. Unknown URLs render the global 404.

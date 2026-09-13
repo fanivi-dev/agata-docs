@@ -1,0 +1,72 @@
+---
+title: "Contributing to the docs"
+description: "How to extend apps/docs, prioritizing General, Design system, API, Config, and DB."
+---
+
+## Priority tabs (stable)
+
+| Tab | Recommended investment |
+| --- | --- |
+| **General** | High — product, onboarding, features |
+| **Eve** | High — AI agent: runtime, tools, and how to extend it |
+| **Design system** | High — `packages/ui` |
+| **API** | High — Go contract |
+| **Configuration** | High — Preview/Production envs (Vercel) |
+| **Database** | High — SQL migrations |
+| **Frontend / Backend** | **Low** — placeholders only until the architecture settles |
+
+## Flow
+
+Docs live in **`apps/docs`**.
+
+<Steps>
+  <Step title="Pick the right tab">
+    Product → General. UI → Design system. HTTP → API. Envs → Configuration. Schema → DB.
+  </Step>
+  <Step title="Create or edit MDX">
+    Frontmatter `title` + `description`. Clear English, tables, examples.
+  </Step>
+  <Step title="Register in docs.json">
+    Path without `.mdx` in `navigation.tabs`.
+  </Step>
+  <Step title="Preview">
+    ```bash
+    bun run dev:docs
+    ```
+  </Step>
+  <Step title="Eve index">
+    ```bash
+    bun --filter app eve:index-docs
+    ```
+    Commit `apps/app/agent/lib/domains/product-docs/index.generated.ts`. Without this, Eve does not see the new page.
+  </Step>
+  <Step title="Merge to main">
+    Docs7 redeploys from `main` (docs directory `apps/docs`). Public:
+    [agata.in/docs](https://agata.in/docs) → [docs.agata.in](https://docs.agata.in).
+  </Step>
+</Steps>
+
+## OpenAPI
+
+If the spec changes:
+
+```bash
+cp apps/api/docs/openapi.yaml apps/docs/openapi/agata-v1.yaml
+```
+
+## CLI
+
+```bash
+bun add -g @upstash/docs7
+bun run dev:docs
+bun --filter docs broken-links
+```
+
+Do not add `@upstash/docs7` as a workspace dependency. Preview is
+`http://127.0.0.1:3333`. `broken-links` walks `docs.json` page files and
+in-repo MDX hrefs. Docs7 CLI has no `broken-links` command.
+
+Docs7 is Mintlify-compatible. For components and `docs.json` fields, open
+the mintlify vendor skill. Host and dashboard: [Docs7](https://context7.com/docs7).
+
+The full feature cycle (product, Paper, API, QA, Vercel) is in [Feature lifecycle](/architecture/feature-lifecycle). This page covers only how to write MDX.
