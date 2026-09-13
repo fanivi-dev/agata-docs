@@ -1,0 +1,199 @@
+---
+title: "Finance"
+description: "Accounts, transactions in cents, profile tags, budgets, debts, savings, and daily summaries."
+---
+
+Sources: `000007_finance.up.sql`, `000010_finance_debt_groups.up.sql`, `000017_finance_categories_to_workspace_tags.up.sql`, `000023_normalize_shared_links.up.sql`, `000030_finance_recurring_transfers.up.sql`, `000035_finance_debt_savings_account.up.sql`, `000036_finance_debt_account_detail.up.sql`, `000037_finance_transaction_debt_payments.up.sql`, `000064_finance_coherence.up.sql`.
+
+## Model (simplified)
+
+```txt
+finance_accounts ──< finance_transactions >── profile_tags (domain_scope=finance)
+        │                      │
+        │                      ├── finance_recurring_rules (+ profile_tag_links)
+        │                      ├── finance_debts (group_id → debt_groups)
+        │                      └── finance_savings_goals
+        └── net worth / balances in cents
+```
+
+Finance-specific categories (`finance_categories`) were removed. Classification = profile **tags** with `domain_scope = 'finance'` (finance pickers also include `general` tags).
+
+## Catalog
+
+### Finance tags
+
+Uses `profile_tags` (`domain_scope = 'finance'`) and, for recurring rules, `profile_tag_links` (`entity_type = finance_recurring_rule`). CRUD via the tags API, not finance. Legacy entity types (`transaction`, `recurring_rule`) are normalized to `finance_transaction` / `finance_recurring_rule`.
+
+### `finance_accounts`
+
+| Column | Notes |
+| --- | --- |
+| `name` / `kind` / `currency` | |
+| `opening_balance_cents` | BIGINT default 0 |
+| `balance_cents` | Current balance |
+| `credit_limit_cents` | Nullable |
+| `statement_day` | INT 1–31 (000036); statement closing day, especially cards |
+| `is_primary` | BOOLEAN default false (000036); **partial unique** per profile among non-deleted accounts |
+| `mask_last4` | TEXT (000036); CHECK exactly 4 digits |
+| `is_archived` | Hides the account from the active list/pickers. Transaction history for that account **still** appears in reports. “Current” net worth excludes archived accounts (active wealth). |
+| soft delete | |
+
+## Movements
+
+### `finance_transactions`
+
+| Column | Type | Notes |
+| --- | --- | --- |
+| `profile_id` | UUID | |
+| `type` | TEXT | **CHECK** `expense` \| `income` \| `transfer` |
+| `amount_cents` | BIGINT NOT NULL | Always cents |
+| `occurred_at` | TIMESTAMPTZ | |
+| `from_account_id` / `to_account_id` | UUID → accounts | Transfer uses both |
+| `name` / `note` | TEXT | |
+| `search_blob` | TEXT | Full-text |
+| `tag_id` | UUID → `profile_tags` | Null on transfers |
+| `debt_id` | UUID → debts | Expense-only |
+| `savings_goal_id` | UUID → savings goals (000064) | Income-only |
+| `recurring_rule_id` | UUID | |
+| `recurring_period_key` | TEXT | Unique with rule |
+| `recurring_manual_override` | BOOLEAN | |
+| `is_paid` | BOOLEAN | |
+| `created_by` | UUID | |
+| soft delete | | |
+
+**Indexes:** occurred, deleted+occurred, recurring period, GIN search.
+**Unique:** one generated tx per rule+period (if not deleted).
+
+Ledger by tag: `GET /finance/profiles/:profileId/tags/:tagId/ledger` (filters transactions by `tag_id`).
+
+## Recurring
+
+### `finance_recurring_rules`
+
+| Column | Notes |
+| --- | --- |
+| `type` | expense \| income \| transfer |
+| `amount_cents` / `day_of_month` | |
+| `from_account_id` / `to_account_id` / `debt_id` / `savings_goal_id` | Transfer requires distinct origin and destination; does not allow debt or savings. Income may link a savings goal (000064). |
+| agenda/email reminders | several `*_reminder_*` fields |
+| `max_occurrences` / `generated_occurrence_count` | |
+| `effective_start_year` / `month` | |
+| `is_active` / soft delete | |
+
+Rule tag: `profile_tag_links` (no column on the rule).
+Recurring transfers do not allow a tag and, when materialized, generate a
+pending `transfer` transaction. The user marks it paid when
+appropriate; only then do they move balance between accounts. They do not alter the
+profile's projected income, expense, or net.
+
+### `finance_recurring_ensure_cooldown`
+
+Control of “ensure month” per profile+year+month. `EnsureRecurringForMonth` **reads** `last_run_at` (TTL ~10 min) before materializing; responds `{ skipped }` if it does not run.
+
+## Debts and savings
+
+### `finance_debt_groups`
+
+| Column | Notes |
+| --- | --- |
+| `profile_id` / `name` / `created_by` | soft delete |
+
+### `finance_debts`
+
+| Column | Notes |
+| --- | --- |
+| `name` / `kind` / `lender` / `currency` | |
+| `starting_balance_cents` / `current_balance_cents` | |
+| `annual_interest_rate_bps` | Basis points |
+| `minimum_payment_cents` / `due_day_of_month` | |
+| `target_payoff_date` | |
+| `group_id` | → debt_groups (000010) |
+| `account_id` | → accounts (000035); default payment account |
+| `settled_at` | TIMESTAMPTZ nullable (000036); marks the debt as settled. Index `(profile_id, settled_at)` |
+| soft delete | |
+
+### `finance_debt_payments`
+
+Payment linked to `debt_id`. Registering a payment creates a paid `expense` and stores its `transaction_id`. Creating or marking as paid any `expense` with a debt syncs this row and the debt balance in the same transaction; reverting to pending or deleting it reverses the effect. Migration 000037 repairs current recurring occurrences that did not inherit the debt and recovers paid movements that had no payment row.
+
+**Indexes:** `(debt_id, occurred_at DESC)` (000036) for history and partial unique `(profile_id, transaction_id)` (000037) so each movement originates at most one payment.
+
+### `finance_savings_goals`
+
+`target_amount_cents`, `current_amount_cents`, `target_date`, `account_id` → accounts (000035; default destination for contributions), `currency` (000064; backfilled from the linked or primary account).
+
+### `finance_savings_contributions`
+
+Contributions with `amount_cents`. Creating or marking paid an `income` with `savings_goal_id` syncs this row and the goal balance in the same transaction. Partial unique `(profile_id, transaction_id)` (000064) so each movement originates at most one contribution. Direct contribution create still writes a paid income when `transaction_id` is omitted.
+
+## Planner (000024)
+
+### `finance_planner_scenarios`
+
+Planner «what-if» scenarios (`/finance/planner`).
+
+| Column | Notes |
+| --- | --- |
+| `name` / `description` | Optional description |
+| `currency` | Scenario currency (000064). Projection stays inside this scope. |
+| `starting_balance_mode` | `accounts` (sum of active non-archived **same-currency** accounts) \| `custom` \| `zero` |
+| `custom_starting_balance_cents` | Required if mode is `custom`; cleared when switching to another mode |
+| soft delete | |
+
+### `finance_planner_scenario_items`
+
+Hypothetical line items of a scenario. The projection combines them with real recurring rules; they do not generate transactions.
+
+| Column | Notes |
+| --- | --- |
+| `scenario_id` | → finance_planner_scenarios |
+| `type` | `expense` \| `income` |
+| `amount_cents` | |
+| `recurrence` | `one_off` \| `monthly` |
+| `start_year` / `start_month` | Application month (monthly granularity) |
+| `end_year` / `end_month` | Optional; only for `monthly` |
+| `is_active` | «what-if» toggle without deleting |
+| soft delete | |
+
+## Budgets and materialized analytics
+
+### `finance_budgets`
+
+| Column | Notes |
+| --- | --- |
+| `name` | Budget's own name (required on upsert) |
+| `currency` | Budget currency (000064). Progress only counts same-currency expenses. |
+| `tag_id` | Nullable = global budget (total spend for the month) |
+| `period` | Default `monthly` |
+| `amount_cents` | |
+| `alert_threshold_pct` | Alert threshold (default 80) |
+| `alert_email_enabled` | If true, an email is sent when crossing the threshold or the cap |
+| `alert_email_last_sent_period_key` | Last send: `YYYY-MM:warning` or `YYYY-MM:exceeded` (one email per band per month). A legacy `YYYY-MM` value counts as warning already sent |
+| `is_active` / `soft delete` | |
+
+### `finance_daily_profile_summaries`
+
+| Column | Notes |
+| --- | --- |
+| `day_key` | `YYYY-MM-DD` |
+| `income_cents` / `expense_cents` | |
+| `expense_paid_cents` / `expense_pending_cents` | |
+| `transfer_count` | |
+| `currency` | Account currency of the movement; blank = unknown (000064) |
+| UNIQUE (profile_id, day_key, currency) | |
+
+Written on every transaction mutation. **Read:** period summary and monthly trend (`GetPeriodSummary` / `GetMonthlyTrend`) aggregate by `day_key` range.
+
+### `finance_daily_tag_summaries`
+
+Aggregated by day + `tag_key` + optional `tag_id` + `currency` (000064). **Read:** period expense breakdown.
+
+## Plan limits
+
+Finance accounts and transactions are unlimited for customers. Private abuse safeguards may return `CAPACITY_GUARD_REACHED`. Tags share the general `profile_tags` safeguard (not a separate category quota).
+
+## Who writes
+
+- Go: `internal/finance`
+- Front: `features/finance`
+- OpenAPI: tag `Finance`

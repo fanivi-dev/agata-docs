@@ -1,0 +1,157 @@
+---
+title: "Agent"
+description: "eve_chats, events, and personal memory."
+---
+
+Migrations: `000012_eve_chat.up.sql` for conversations, `000027_eve_chat_pinned_at.up.sql` for pins, `000025_agent_credits_addons.up.sql` for credits, `000039_eve_privacy_memory_proactive.up.sql` for privacy, share audit, and memory, `000043_drop_eve_proactive.up.sql` to drop in-app proactivity tables, `000068_entitlement_v2_usage_accounts.up.sql` for entitlement versions and billing-scope usage accounts, `000069_index_eve_chat_session.up.sql` for session ownership, CAS revisions, voice persistence, and API idempotency, `000070_redact_eve_reasoning_events.up.sql` for irreversible legacy reasoning removal, and `000071_eve_turn_correlations.up.sql` for the content-free reservation/turn join.
+
+The `eve_*` tables are written by the Next app. The Go domain writes the credits projection, reservations, and outbox.
+
+The runtime that produces this data is documented in the [Eve](/eve) tab: [architecture](/eve/runtime/architecture) and [credits](/eve/runtime/credits).
+
+## Privacy and ownership
+
+- **New** chats start with `visibility = private` (author only).
+- **Existing** chats when applying `000039` became shared so access was not broken (value was `workspace`; current value is `profile` after the workspace→profile rename).
+- Shared (`profile`) is **read-only** for members other than the author: list/open yes; mutate, voice, and persistence no.
+- Shared readers receive stored events but never the live Eve session cursor.
+- Operational Eve routes require a `session_id` binding in `eve_session_owners`. A five-minute, browser-generated claim binds the first stream to the owned chat; later requests check the stored owner.
+- `user_id` references Better Auth `"user"(id)` (author resolvable by join to `name` / `email`).
+
+## `eve_chats`
+
+| Column | Notes |
+| --- | --- |
+| `id` | TEXT (UUID string) |
+| `profile_id` | Scope by profile |
+| `user_id` | Author (Better Auth TEXT id) → `"user".id` |
+| `visibility` | `private` \| `profile` (default `private`) |
+| `title` | Default `New chat`; updated with the first message (or manual rename) |
+| `eve_session` | JSONB — Eve cursor (`SessionState`) for resume |
+| `event_revision` | Monotonic CAS revision for event/snapshot writes |
+| `pending_user_message` | First message / in-flight turn |
+| `pending_user_message_created_at` | |
+| `pinned_at` | NULL = not pinned; timestamp when pinning |
+| `created_at` / `updated_at` | |
+
+Indexes: `(profile_id, user_id, updated_at DESC)`, `(profile_id, pinned_at DESC NULLS LAST, updated_at DESC)` and `(profile_id, visibility, pinned_at DESC NULLS LAST, updated_at DESC)`.
+
+Listing by viewer: own chats **or** `visibility = profile`.
+
+## `eve_chat_events`
+
+| Column | Notes |
+| --- | --- |
+| `id` | TEXT |
+| `chat_id` | FK → `eve_chats` (`ON DELETE CASCADE`) |
+| `event_index` | Stream order; unique with `chat_id` |
+| `event` | JSONB — Eve event (`HandleMessageStreamEvent`), excluding raw `reasoning.*` |
+| `created_at` | |
+
+Unique `(chat_id, event_index)`.
+
+Text appends and terminal snapshots present the expected `event_revision`. A stale writer receives a conflict and cannot overwrite an accepted index or delete a newer tail. Voice history is appended atomically with an `eve_voice_persistences.idempotency_key`; replay returns the first result. Raw reasoning is rejected on append and snapshot, filtered on every read for pre-migration safety, and removed at rest by `000070`.
+
+## Operational safety tables
+
+- `eve_session_owners`: immutable Eve session → chat/profile/author binding.
+- `eve_session_ownership_claims`: five-minute, single-use claim used between session creation and the first stream request.
+- `eve_voice_persistences`: one atomic voice-history append per stable client key.
+- `eve_voice_approval_challenges`: five-minute, single-use voice consent token bound to actor, profile, chat, turn, call, tool name, and arguments digest. Approve and deny consume it atomically.
+- `api_idempotency_records`: fail-closed result ledger for Eve-authored Go mutations. A completed retry returns the stored response; an indeterminate `pending` record returns `409` and never replays the domain write.
+- `eve_turn_correlations`: one pseudonymous id joining the accepted credit reservation, Eve turn ledger, and optional response feedback. It stores no prompt, response, reasoning, or tool payload.
+
+Image attachment URLs in `message.received` events point to the `/api/blob?pathname=…` proxy (bytes in private Vercel Blob under `profiles/{profileId}/agent/{chatId}/`). Bytes do not live in Postgres; old chats may still have embedded `data:` URLs.
+
+The plan-sized profile pool is **50 MB Free, 250 MB Pro, or 1 GB Business**. Usage is computed by listing the Blob prefix `profiles/{profileId}/agent/`; deleting all images removes those objects but does not rewrite event JSON (broken links may remain in history).
+
+Local utility metrics (success/error, terminal outcomes, re-prompts, settle time, deduplicated denials, and restores): `bun --filter app eve:metrics` — see [Eve → Utility](/eve/runtime/utility#local-metrics).
+
+## `eve_chat_share_events`
+
+Audit of visibility changes (share / privatize).
+
+| Column | Notes |
+| --- | --- |
+| `id` | TEXT |
+| `chat_id` | FK → `eve_chats` CASCADE |
+| `actor_user_id` | Better Auth `"user".id` |
+| `from_visibility` / `to_visibility` | `private` \| `profile` |
+| `created_at` | |
+
+## `eve_user_memories`
+
+**Personal** memory by `(profile_id, user_id)`. Never shared or inferred from history. CRUD in Next (`memory-queries` / `eve-memory-actions`); injection delimited by a dynamic Eve instruction; `manage_eve_memory` always with approval.
+
+| Column | Notes |
+| --- | --- |
+| `id` | TEXT |
+| `profile_id` | FK → profiles CASCADE |
+| `user_id` | Better Auth `"user".id` |
+| `kind` | `preference` \| `context` \| `constraint` |
+| `content` | 1–2000 chars |
+| `deleted_at` | Soft-delete |
+| `created_at` / `updated_at` | |
+
+Product limits: max 50 active per user/profile; up to 30 injected into the prompt. Active partial index: `(profile_id, user_id, updated_at DESC) WHERE deleted_at IS NULL`.
+
+## `agent_usage_accounts`
+
+Authoritative Agent credit ledger keyed by `(scope_kind, scope_id)`.
+
+| Scope | Key | Who shares it |
+| --- | --- | --- |
+| `profile` | profile UUID | Paid profiles |
+| `free_owner` | owner's Better Auth id | Every Free profile that person owns |
+
+Reservations keep `profile_id` for audit and add `usage_account_id` for the decrement. Metronome customer aliases follow the same scope key.
+
+## `profile_agent_credit_balances`
+
+Profile-local projection mirrored from the usage account; Metronome keeps the canonical ledger.
+
+| Column | Notes |
+| --- | --- |
+| `profile_id` | PK / FK → `profiles` |
+| `metronome_customer_id` / `metronome_contract_id` | External identity |
+| `included_credits` / `extra_credits` / `total_credits` | Window grants |
+| `metronome_granted_included_credits` / `metronome_granted_extra_credits` | Idempotent control of grants already sent |
+| `remaining_credits` | Balance used by the local gate |
+| `period_start_at` / `period_end_at` | Monthly or trial window |
+| `sync_status` | `pending` / `synced` / `degraded` / `error` |
+| `last_synced_at` | Last successful reconciliation |
+
+No alternate ledger is stored in Postgres. Reconciliation locks the balance
+row, expires abandoned reservations, and subtracts both active reservations and
+still-pending consumption events. It also never increases the local balance during
+an event's propagation window: the gate stays fail-closed and does not
+grant overage. The same job advances expired monthly windows and enqueues their
+grants, including packs from an annual subscription.
+
+## `agent_credit_reservations`
+
+One row per `message_id` UUID. States: `reserved`, `committed`, `released`, `expired`.
+
+- The reservation atomically decrements the projection.
+- Confirming creates the usage event; repeating the same UUID is idempotent.
+- Releasing or expiring an unconfirmed reservation restores the credit.
+- `credit_charged` lets the flow be deployed before activating the gate with `AGENT_CREDITS_ENFORCED`.
+
+## `metronome_outbox_events`
+
+Durable outbox with PK `transaction_id`, `event_kind` (`usage` /
+`contract_sync`), JSONB payload, status, attempts, next attempt, and last
+error. The columns `qstash_message_id`, `qstash_deduplication_id` (no `:`;
+QStash rejects it), `qstash_published_at`, `qstash_publish_attempt_count`, and
+`qstash_last_error` record async delivery without moving the source of
+truth out of Postgres.
+
+Usages use `message_id` as `transaction_id`. A write publishes a
+wake-up on QStash; the callback can only claim the current generation. Delivery
+to Metronome retries network, 429, and 5xx; non-recoverable 4xx go to
+`dead_letter`. Hourly recovery covers unpublished messages and abandoned
+`processing` rows.
+
+## `metronome_webhook_events`
+
+Idempotent inbox by `event_id`. Stores payload, type, customer, and result. The webhook validates the Metronome HMAC before inserting.
