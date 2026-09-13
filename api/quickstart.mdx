@@ -1,0 +1,105 @@
+---
+title: "Quickstart"
+description: "First call to the Agata API in minutes."
+---
+
+Goal: in a few minutes you have the API running and a valid JSON response.
+
+## Requirements
+
+- Go API configured (`apps/api/.env.local`)
+- Postgres with migrations applied
+- Node monorepo only if you will call from Next
+
+```bash
+# monorepo root
+bun run api:migrate-up
+bun run api:dev
+```
+
+By default the API listens on port **8080** (adjust for your env).
+
+## Step 1 — Health (public)
+
+No secrets required.
+
+```bash
+curl -sS http://localhost:8080/api/health | jq
+```
+
+Expected response (conceptual shape):
+
+```json
+{
+  "data": {
+    "status": "ok"
+  },
+  "request_id": "…"
+}
+```
+
+There is also `GET /api/health/ready` for readiness (depends on the DB).
+
+## Step 2 — Authenticated call (dev)
+
+Almost every product route goes through:
+
+1. **User identity** — Better Auth Bearer session only (`Authorization: Bearer <session token>`).
+2. **Profile** — `:profileId` path + membership (on domain routes).
+
+Details: [Authentication](/api/authentication).
+
+Example: list the user's profiles (requires user auth):
+
+```bash
+export BASE=http://localhost:8080/api
+export SESSION=better-auth-session-token
+
+curl -sS "$BASE/profiles" \
+  -H "Authorization: Bearer $SESSION" \
+  -H "Content-Type: application/json" | jq
+```
+
+## Step 3 — A domain mutation
+
+With a valid `profileId`, create a task (exact fields per OpenAPI / the TS client):
+
+```bash
+export WS=yyyyyyyy-yyyy-yyyy-yyyy-yyyyyyyyyyyy
+
+curl -sS -X POST "$BASE/tasks/profiles/$WS" \
+  -H "Authorization: Bearer $SESSION" \
+  -H "Content-Type: application/json" \
+  -d '{"title":"My first task from the API"}' | jq
+```
+
+Full guide: [Create a task](/api/guides/create-a-task).
+
+## Step 4 — From Next (the real monorepo path)
+
+In the product you **do not** call Go from the browser. The flow is:
+
+```txt
+Client UI
+  → server action ('use server')
+    → requireBetterAuthSession / requireGoDomainServerAuth
+      → Authorization: Bearer <session token>
+        → HTTP to Go /api/...
+```
+
+See [From Next.js](/api/guides/from-nextjs).
+
+## Aha moment checklist
+
+- [ ] `/api/health` returns 200
+- [ ] You list profiles with your user
+- [ ] You create or read a resource in a profile
+- [ ] You know how to read `error.code` and `request_id` on failures
+
+## Next
+
+| If you want to… | Go to… |
+| --- | --- |
+| Understand auth | [Authentication](/api/authentication) |
+| Money/date format | [Conventions](/api/conventions) |
+| Explore every endpoint | OpenAPI reference (sidebar) |

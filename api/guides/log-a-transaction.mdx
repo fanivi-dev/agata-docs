@@ -1,0 +1,56 @@
+---
+title: "Guide: log a finance transaction"
+description: "Create a transaction in cents inside a profile."
+---
+
+Use case: **log an expense or income** with an account and a category.
+
+## Prerequisites
+
+- Finance enabled in the profile (in team it can be opt-in)
+- Full profile auth
+- Preferably: at least one account (`finance_accounts`)
+
+## 1. List accounts
+
+```bash
+curl -sS "$BASE/finance/profiles/$WS/accounts" \
+  -H "Authorization: Bearer $SESSION" | jq
+```
+
+## 2. Create a transaction
+
+Amounts are in **cents**.
+
+```bash
+curl -sS -X POST "$BASE/finance/profiles/$WS/transactions" \
+  -H "Authorization: Bearer $SESSION" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "account_id": "account-uuid",
+    "amount_cents": -1299,
+    "occurred_on": "2026-07-15",
+    "note": "Team coffee"
+  }' | jq
+```
+
+<Note>
+  The exact body shape (required/optional fields) is in OpenAPI → Finance → `createTransaction`. Adjust names if the spec uses variants (`amountCents` vs snake on the wire — the Go API uses snake_case in JSON).
+</Note>
+
+## 3. Quick analytics
+
+```bash
+curl -sS "$BASE/finance/profiles/$WS/analytics/period-summary?from=2026-07-01&to=2026-07-31" \
+  -H "Authorization: Bearer $SESSION" | jq
+```
+
+## Plan limits
+
+Finance accounts and transactions are unlimited for customers. Private abuse safeguards may return `CAPACITY_GUARD_REACHED`. Customer-facing caps remain `members_per_profile` and `agent_credits_per_month`.
+
+## Related
+
+- [Finance product](/apps/finance)
+- [Finance tables](/database/finance)
+- OpenAPI tag **Finance** · partial spec `apps/api/openapi/finance.v1.yaml`

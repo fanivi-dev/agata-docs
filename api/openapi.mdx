@@ -1,0 +1,67 @@
+---
+title: "OpenAPI and playground"
+description: "Canonical spec, copy in docs, and how the interactive reference is generated."
+---
+
+## Canonical spec (product monorepo)
+
+```txt
+apps/api/docs/openapi.yaml
+```
+
+- OpenAPI **3.0.3**
+- Base paths under `/api`
+- Tags by domain (Users, Tasks, Finance, …)
+- Security schemes: session bearer (+ cron bearer on internal routes)
+
+## Copy on the docs site
+
+Docs7 only packages the **`apps/docs`** directory. That is why there is a copy:
+
+```txt
+apps/docs/openapi/agata-v1.yaml
+```
+
+The sidebar includes the **OpenAPI Reference** group, generated automatically from that file (pages per operation + playground).
+
+## How to keep them in sync
+
+When you change routes or schemas in Go:
+
+1. Update `apps/api/docs/openapi.yaml` (backend source of truth).
+2. Copy to docs:
+
+```bash
+cp apps/api/docs/openapi.yaml apps/docs/openapi/agata-v1.yaml
+```
+
+3. Commit both files in the same PR.
+4. Merge to `main` → Docs7 redeploy.
+
+<Tip>
+  Ideally a CI script `docs:sync-openapi` does the `cp` and fails if they differ. It can be added later.
+</Tip>
+
+## Playground
+
+- Spec servers: `http://localhost:{port}/api` and a configurable server.
+- **Do not** use production secrets in public demos.
+
+## Partial specs
+
+| File | Use |
+| --- | --- |
+| `apps/api/openapi/finance.v1.yaml` | Versioned finance / experiments |
+
+You can link additional specs in `docs.json` when they are mature.
+
+## Validate locally
+
+```bash
+# OpenAPI tools (Swagger Editor) or the hosted Docs7 build
+```
+
+## Download
+
+If the page menu exposes a spec download, use that. The YAML also lives at
+`/openapi/agata-v1.yaml` on the docs host.

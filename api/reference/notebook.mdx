@@ -1,0 +1,20 @@
+---
+title: "Reference: notebook"
+description: "Groups, notes, and rich-text documents."
+---
+
+Prefix: **`/notebook/profiles/:profileId`**
+
+| Resource | Methods | Path |
+| --- | --- | --- |
+| Insights | `GET` | `/insights-summary?todayLocalDateKey=` |
+| Groups | `GET` `POST` `PATCH` `DELETE` | `/groups`, `/groups/:groupId` |
+| Notes | `GET` `POST` `GET` `PATCH` `DELETE` | `/notes`, `/notes/:noteId` |
+| Trash | `GET` | `/notes/trash` |
+| Restore | `POST` | `/notes/:noteId/restore` |
+| Document | `GET` `PUT` | `/notes/:noteId/document` |
+| Images | `DELETE` | `/notes/:noteId/images/:imageId` |
+
+Guide: [Edit rich text](/api/guides/edit-rich-text)
+
+The note-metadata `GET` and the document `GET` are **distinct paths** on purpose.
