@@ -1,0 +1,280 @@
+---
+title: "Schema changelog"
+description: "Relevant SQL migration changes."
+---
+
+## Format
+
+```md
+## YYYY-MM-DD — migration_name
+
+- Change
+- Impact on app/API
+```
+
+## History (from migrations in the repo)
+
+### `000083_feedback_source_profile_name`
+
+- `feedback_submissions.source_workspace_name` → `source_profile_name`
+- Completes the 000079 workspace → profile rename. Seed and GORM already write the new name
+- Local migrate-up applied 2026-09-13 (82 → 83). Additive rename.
+
+### `000082_organization_teams`
+
+- `organization_teams`, `organization_team_members`, `profile_team_assignments`
+- `profile_members.origin`: `direct` \| `team` (default `direct`)
+- Assign Team → Studio upserts `profile_members`. Unassign removes team-only rows
+- **Written, not applied.** SQL written is not a schema applied.
+
+### `000080_profile_visibility`
+
+- `visibility` on `profiles`: `private` \| `public` (default `private`)
+- Public `/@handle` and `/api/p/:handle` return 404 unless the viewer is a member
+- `PATCH /api/profiles/{profileId}` accepts `visibility`
+- Local migrate-up applied 2026-09-10 (79 → 80). Additive.
+
+### `000079_workspace_to_profile`
+
+- Renames tenancy: `workspaces` → `profiles`, `workspace_members` → `profile_members`, column `workspace_id` → `profile_id`
+- API: `/api/profiles`, `/api/{domain}/profiles/:profileId`, public `/api/p/:handle`
+- Team app: `/profiles/:handle`. Browser `/@handle` unchanged. API stays `/api/profiles/:profileId`
+- **Written, not applied.** SQL written is not a schema applied.
+
+### `000078_meal_log_share_visibility`
+
+- `visibility` on `nutrition_meal_logs`: `members` \| `followers` \| `public` (default `members`)
+- API: `GET /profiles/{handle}/meals`, `GET .../meals/{dateKey}`
+- Local migrate-up applied 2026-09-10 (75 → 78). Additive.
+
+### `000077_goals_share_visibility`
+
+- `visibility` on `goals` only (no vision boards)
+- API: `GET /profiles/{handle}/goals`, `GET .../goals/{goalId}`
+- Local migrate-up applied 2026-09-10 (75 → 78). Additive.
+
+### `000076_library_share_visibility`
+
+- `visibility` on `library_items` and `library_collections`: `members` \| `followers` \| `public` (default `members`)
+- API: `GET /profiles/{handle}/library`, `GET .../library/{itemId}`, `GET .../collections`, `GET .../collections/{collectionId}`
+- Local migrate-up applied 2026-09-10 (75 → 78). Additive.
+
+### `000075_domain_places`
+
+- Nullable `place_id` on library items, reminders, health routines/sessions, nutrition shopping collections and meal logs, tasks, week-plan items, finance transactions and recurring rules, goals, goal milestones, and activities
+- Health sessions may also store `route_geojson`
+- Nutrition pantry `location` is unchanged
+
+### `000074_places`
+
+- `places` table: profile-scoped name, optional address, lat/lng, provider `manual` \| `url`
+- API: CRUD under `/places/workspaces/{workspaceId}/places`
+- Product `place_id` FKs land in `000075`. Not a Travel app.
+
+### `000073_profile_follows_nutrition_visibility`
+
+- `workspaces.handle` (unique while active), `kind` (`person` \| `organization`), `bio`
+- `profile_follows` (`follower_user_id`, `profile_id`)
+- `visibility` on `nutrition_recipes` and `nutrition_meal_plans`: `members` \| `followers` \| `public` (default `members`)
+- API: public profile reads and follow under `/profiles/{handle}`
+
+### `000068_entitlement_v2_usage_accounts`
+
+- `workspaces.entitlement_version` (`1` \| `2`, default `2`)
+- `agent_usage_accounts` keyed by `(scope_kind, scope_id)` for Free-owner pooling and paid profile balances
+- `agent_credit_reservations.usage_account_id`
+- v2 text limits: Free 100 / owner, Pro 500 / profile, Business 2,000 / profile
+- API: `AgentCreditBalance` adds `entitlementVersion` and `billingScopeKind`
+
+### `000065_drop_redundant_indexes`
+
+- Drop left-prefix indexes covered by a wider index with the same `deleted_at IS NULL` predicate
+- `idx_nutrition_meal_logs_workspace` → `idx_nutrition_meal_logs_workspace_date_key`
+- `idx_week_plans_workspace` → unique `idx_week_plans_workspace_week_active`
+- `idx_workspace_tags_workspace` and `idx_workspace_tags_scope` → unique `idx_workspace_tags_active_name`
+- Does not drop unused tables or unused-but-not-redundant indexes
+
+### `000064_finance_coherence`
+
+- `savings_goal_id` on `finance_transactions` and `finance_recurring_rules`
+- Partial unique `(workspace_id, transaction_id)` on `finance_savings_contributions`
+- Nullable `currency` on budgets, savings goals, and planner scenarios, backfilled from the primary or linked account
+- Daily profile/tag summaries are keyed by currency (blank = unknown). Rebuilt from the ledger
+- API: savings-linked income is atomic with the contribution; aggregates stay currency-scoped
+
+### `000063_document_schema_version`
+
+- `schema_version SMALLINT NOT NULL DEFAULT 1 CHECK (schema_version > 0)` on `task_documents` and `note_documents`
+- Existing rows adopt schema version 1 without rewriting `content_json`
+- Editing concurrency stays on `version`; JSON compatibility uses `schema_version`
+
+### `000061_better_auth_account_issuer`
+
+- `account.issuer` TEXT NOT NULL, unique with `accountId`
+- Better Auth 1.6+ looks up email/password as `providerId=credential` + `issuer=local:credential` + `accountId=user.id`
+- Seed writes the same issuer so `seed@agata.local` can sign in
+
+### `000059_purge_orphan_project_links`
+
+- Deletes `workspace_project_links` rows whose linked entity no longer exists (and, for entities without a restore flow, rows whose entity is soft-deleted)
+- API: modules now clear project links when they delete a linkable entity, and `ListProjectLinks` hides links it cannot resolve instead of rendering the raw entity id
+
+### `000058_vision_boards`
+
+- Tables `vision_boards`, `vision_board_items`, `vision_board_goal_links`
+- API: CRUD under `/goals/workspaces/:id/vision-boards`
+- UI: Vision board tab in Goals
+
+### `000057_goal_images`
+
+- Table `goal_images` (same blob pattern as `activity_images`)
+- API: attach via `POST /blob/.../attachments` with `domain=goals`; `DELETE /goals/.../:goalId/images/:imageId`
+- `primaryImage` on goals list/detail
+
+### `000056_drop_activity_project_links`
+
+- Deletes `workspace_project_links` where `entity_type = activity`
+- Activities can no longer belong to a project
+
+### `000055_workspace_member_favorite`
+
+- `workspace_members.is_favorite` (BOOLEAN, default false): personal favorite per membership
+- API: `isFavorite` on `GET /workspaces` and `POST /workspaces/:id/favorite`
+
+### `000054_week_plan_series_start`
+
+- `week_plan_series.starts_on_week_start_date_key` (Monday of the week Repeat was turned on)
+- `POST /series/ensure` does not create items in previous weeks. The migration deletes already-materialized leaks
+
+### `000053_week_plan_activity_link`
+
+- `week_plan_items.source_activity_id` and `week_plan_series.source_activity_id` → `activities`
+- XOR with `source_task_id`. Weekly occurrences inherit the habit from the series
+
+### `000052_week_plan_later`
+
+- `week_plan_items.date_key` becomes nullable
+- NULL = **Later** item for that week (no day). Does not appear in Calendar
+
+### `000051_week_plan_series`
+
+- Table `week_plan_series` (title, notes, weekday 0–6) and `week_plan_items.series_id`
+- Unique `(series_id, date_key)` includes soft-deleted rows so a deleted occurrence is not rematerialized
+- API: `repeatWeekly` / `stopRepeating` on items and `POST /series/ensure`
+
+### `000050_drop_unused_redundant_indexes`
+
+- Drop `idx_goals_workspace` (left-prefix of `idx_goals_workspace_user_updated`)
+- Drop `idx_eve_chat_events_chat` (left-prefix of unique `idx_eve_chat_events_chat_index`)
+- Drop `idx_finance_accounts_workspace` if present (GORM leftover; covered by `idx_finance_accounts_workspace_archived`). Does not touch `idx_finance_accounts_primary`.
+
+### `000046_billing_pending_plan`
+
+- `workspaces.billing_pending_plan` / `billing_pending_interval` for the target of a Subscription Schedule
+- Use: impact preview and billing strips while the current plan stays active until renewal
+
+### `000044_week_plan`
+
+- Tables `week_plans` + `week_plan_items` (Mon–Sun plan per profile)
+- Partial unique `(workspace_id, week_start_date_key)` when active; items by `(plan_id, date_key, sort_order)`
+- API domain `/week-plan`; distinct from Nutrition meal plans
+
+### `000043_drop_eve_proactive`
+
+- Drop `eve_proactive_deliveries` and `eve_proactive_settings`
+- Purge `scheduled_notifications` with `domain = 'agent'`
+- Delete dedicated chats `eve-proactive-%`
+
+### `000040_eve_proactive_last_read`
+
+- Historical: `eve_proactive_settings.last_read_at` (retired in `000043`)
+
+### `000039_eve_privacy_memory_proactive`
+
+- `eve_chats.visibility` (`private` \| `workspace`); existing → `workspace`; new default `private`
+- FK `eve_chats.user_id` → Better Auth `"user"(id)` (resolvable author)
+- `eve_chat_share_events` for share/privatize audit
+- Foundations: `eve_user_memories` (proactive tables created here and retired in `000043`)
+
+### `000036_finance_debt_account_detail`
+
+- `finance_debts.settled_at` (debt settlement) + index `(workspace_id, settled_at)`
+- `finance_accounts.statement_day`, `is_primary` (partial unique per workspace) and `mask_last4`
+- Debt payments index reordered to `(debt_id, occurred_at DESC)`
+
+### `000035_finance_debt_savings_account`
+
+- `finance_debts.account_id` and `finance_savings_goals.account_id` (optional FK to `finance_accounts`)
+- Debt payments / savings contributions create ledger transactions (`expense` / `income`) and link `transaction_id`
+
+### `000033_qstash_delivery`
+
+- Publish, deduplication, and QStash error metadata on
+  `scheduled_notifications` and `metronome_outbox_events`
+- Backfill of one delivery generation for pending rows
+- Partial indexes to recover pending work without a published message
+
+### `000032_finance_budget_name`
+
+- `finance_budgets.name` (TEXT NOT NULL, default `''`)
+- Backfill from `workspace_tags.name` when there is a `tag_id`
+- Budget upsert requires a name; the UI can autocomplete it from the tag
+
+### `000023_normalize_shared_links`
+
+- Normalizes legacy financial tag links (`transaction` / `recurring_rule`) to `finance_transaction` / `finance_recurring_rule`
+- Migrates `pomodoro_timers.linked_project_id` to `workspace_project_links` with `entity_type = pomodoro_timer`
+
+### `000012_eve_chat`
+
+- Drop `agent_conversations` / `agent_messages`
+- Tables `eve_chats` / `eve_chat_events` (Eve persistence, written from Next)
+
+### `000011_agent`
+
+- Tables `agent_conversations` and `agent_messages` for Agent chat (beta) — replaced by `000012`
+
+### `000010_finance_debt_groups`
+
+- New table `finance_debt_groups`
+- `finance_debts.group_id` optional FK
+
+### `000009_scheduled_notifications`
+
+- Unified scheduled-notifications queue with `idempotency_key`
+
+### `000007_finance`
+
+- Full finance schema (accounts, tx, budgets, debts, savings, summaries)
+
+### `000006_notebook`
+
+- Notes + versioned documents + images
+
+### `000005_domains`
+
+- Goals, pomodoro, activities, reminders, library, health, nutrition
+
+### `000004_tasks`
+
+- Tasks + documents + comments/subtasks/images + `task_count` triggers
+
+### `000003_platform`
+
+- Blobs, tags, projects, project feed
+
+### `000002_better_auth`
+
+- camelCase auth tables
+
+### `000001_platform_core`
+
+- Users, workspaces, members, feedback, audit, billing audit
+
+## 2026-07-17 — docs
+
+- Layout documented as **a single** `postgres` database (no multi-app logical DBs in the cluster).
+
+## 2026-07-15 — docs
+
+- Database tab expanded with columns by domain and conventions.

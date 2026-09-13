@@ -1,0 +1,316 @@
+---
+title: "Platform"
+description: "users, organizations, profiles, members, invitations, feedback, audit, blobs, tags, and projects."
+---
+
+Sources: `000001_platform_core.up.sql`, `000003_platform.up.sql`,
+`000073_profile_follows_nutrition_visibility.up.sql`,
+`000081_organizations.up.sql`, `000082_organization_teams.up.sql`.
+
+## Identity and preferences
+
+### `users`
+
+**Product** user (not Better Auth).
+
+| Column | Type | Notes |
+| --- | --- | --- |
+| `id` | UUID PK | Default `gen_random_uuid()` |
+| `auth_user_id` | TEXT | Link to `"user".id`; unique when active |
+| `email` | TEXT NOT NULL | |
+| `normalized_email` | TEXT NOT NULL | Partial unique when active |
+| `name` | TEXT | |
+| `avatar_url` | TEXT | |
+| `last_login_at` | TIMESTAMPTZ | |
+| `created_at` / `updated_at` | TIMESTAMPTZ | |
+| `deleted_at` | TIMESTAMPTZ | Soft delete |
+
+**Indexes:** active email, active `auth_user_id`.
+
+### `user_preferences`
+
+| Column | Type | Notes |
+| --- | --- | --- |
+| `user_id` | UUID PK → users | 1:1 |
+| `appearance` | JSONB | Default `{"theme":"system"}`. May include `localeMode`, `sidebarOpen`, `tasksCalendarPanelVisible`, `weekPlanHiddenDays` (`mon`–`sun` hidden in the week-plan board/list/day), `tasksKanbanHiddenColumns` (status/priority columns hidden on the project Kanban), `lastProfileId` (last profile used for `/users/me/session`) |
+| `regional` | JSONB | Default `{"mode":"auto"}` |
+| `created_at` / `updated_at` | TIMESTAMPTZ | |
+
+Source of truth for preferences: **Postgres**. Upstash Redis (optional) caches hot paths — `me:session:{userId}`, `identity:auth:{authUserId}`, `access:{userId}:{profileId}`, `profile:usage:{profileId}` (HASH of plan counters) — and does not replace these tables.
+
+## Profiles and membership
+
+### `profiles`
+
+| Column | Type | Notes |
+| --- | --- | --- |
+| `id` | UUID PK | |
+| `name` | TEXT NOT NULL | |
+| `handle` | TEXT NOT NULL | Public slug; unique while not deleted. `^[a-z0-9_]{3,30}$` |
+| `kind` | TEXT NOT NULL | `person` \| `organization`. Default `person` |
+| `bio` | TEXT | Public blurb |
+| `description` | TEXT | |
+| `owner_id` | UUID → users | Accountable user (billing/session). Always set. |
+| `organization_id` | UUID → organizations | Null = personal Studio. Set = org-owned. |
+| `image_url` | TEXT | |
+| `settings` | JSONB | sections, guest access |
+| `profile_plan` | TEXT | `base` \| `pro` \| `business` |
+| `entitlement_version` | SMALLINT | `1` \| `2`. Default `2`. Unknown versions fail closed |
+| `billing_provider` | TEXT | `none` \| `stripe` |
+| `billing_subscription_status` | TEXT | |
+| `billing_current_period_start_at` / `billing_current_period_end_at` | TIMESTAMPTZ | Stripe window |
+| `billing_interval` | TEXT | `month` \| `year` |
+| `billing_extra_member_seats` | INT | 0–100 |
+| `billing_ai_credit_packs` | INT | 0–100; each pack adds 500 credits / month |
+| `billing_pending_extra_member_seats` / `billing_pending_ai_credit_packs` | INT | Scheduled reduction |
+| `billing_pending_plan` | TEXT | Scheduled target plan (`base` \| `pro` \| `business`) |
+| `billing_pending_interval` | TEXT | Scheduled target interval (`month` \| `year`) |
+| `billing_pending_effective_at` | TIMESTAMPTZ | Next renewal |
+| `last_billing_event_at` | TIMESTAMPTZ | |
+| `billing_past_due_grace_until_at` | TIMESTAMPTZ | |
+| `seat_count` | INT | Effective capacity: included + extras |
+| `member_count` | INT | Default 1 |
+| `project_count` | INT | Custom projects only (excludes default General); default 0. Operational counter, not a customer-facing plan limit. |
+| `created_at` / `updated_at` | TIMESTAMPTZ | |
+| `deleted_at` | TIMESTAMPTZ | Soft |
+| `permanently_deleted_at` | TIMESTAMPTZ | Purge |
+
+### `organizations`
+
+Company account. Not a Studio. No handle, followers, or public page.
+
+| Column | Type | Notes |
+| --- | --- | --- |
+| `id` | UUID PK | |
+| `name` | TEXT NOT NULL | |
+| `created_at` / `updated_at` | TIMESTAMPTZ | |
+| `deleted_at` | TIMESTAMPTZ | Soft |
+
+### `organization_members`
+
+People in an Organization. Unique active `(organization_id, user_id)`.
+
+| Column | Type | Notes |
+| --- | --- | --- |
+| `id` | UUID PK | |
+| `organization_id` | UUID → organizations | |
+| `user_id` | UUID → users | |
+| `role` | TEXT | `owner` \| `admin` \| `member` |
+| `created_at` / `updated_at` | TIMESTAMPTZ | |
+| `deleted_at` | TIMESTAMPTZ | |
+
+### `organization_teams`
+
+Org-scoped permission group. Not a Studio. No handle, followers, or public page.
+
+| Column | Type | Notes |
+| --- | --- | --- |
+| `id` | UUID PK | |
+| `organization_id` | UUID → organizations | |
+| `name` | TEXT NOT NULL | |
+| `created_at` / `updated_at` | TIMESTAMPTZ | |
+| `deleted_at` | TIMESTAMPTZ | Soft |
+
+### `organization_team_members`
+
+People on a Team. Must already be `organization_members`. Unique active `(team_id, user_id)`.
+
+| Column | Type | Notes |
+| --- | --- | --- |
+| `id` | UUID PK | |
+| `team_id` | UUID → organization_teams | |
+| `user_id` | UUID → users | |
+| `created_at` / `updated_at` | TIMESTAMPTZ | |
+| `deleted_at` | TIMESTAMPTZ | |
+
+### `profile_team_assignments`
+
+M:N assign Team → org-owned Studio. Writes `profile_members` with `origin='team'`. Unique active `(profile_id, team_id)`.
+
+| Column | Type | Notes |
+| --- | --- | --- |
+| `id` | UUID PK | |
+| `profile_id` | UUID → profiles | Org-owned Studio |
+| `team_id` | UUID → organization_teams | Same Organization |
+| `role` | TEXT | `admin` \| `member` (not `owner`) |
+| `created_at` / `updated_at` | TIMESTAMPTZ | |
+| `deleted_at` | TIMESTAMPTZ | |
+
+### `profile_members`
+
+| Column | Type | Notes |
+| --- | --- | --- |
+| `id` | UUID PK | |
+| `profile_id` | UUID → profiles | |
+| `user_id` | UUID → users | Unique when active per profile |
+| `role` | TEXT | `owner` \| `admin` \| `member` |
+| `invited_by` | UUID → users | |
+| `username` / `email` / `avatar_url` | TEXT | Denormalized snapshot |
+| `section_access` | JSONB | `[{sectionId, role}]` — `role`: `admin` \| `member` (admin can delete in that section) |
+| `origin` | TEXT | `direct` \| `team`. Default `direct`. Team-granted rows unassign only when no other assigned Team covers the user |
+| `is_favorite` | BOOLEAN | Per-user preference; default `false`. The star on `/profiles` is personal, not shared |
+| `joined_at` / `updated_at` | TIMESTAMPTZ | |
+| `deleted_at` | TIMESTAMPTZ | |
+
+### `profile_invitations`
+
+| Column | Type | Notes |
+| --- | --- | --- |
+| `id` | UUID PK | |
+| `profile_id` | UUID → profiles | |
+| `invited_email` | TEXT NOT NULL | Unique pending per profile |
+| `invited_user_id` | UUID → users | If an account already exists |
+| `invited_by` | UUID → users | |
+| `role` | TEXT | `admin` \| `member` |
+| `section_access` | JSONB | Same shape as in `profile_members` |
+| `status` | TEXT | pending / accepted / rejected / expired / canceled |
+| `expires_at` | TIMESTAMPTZ | |
+| `accepted_at` / `rejected_at` / `revoked_at` / `responded_at` | TIMESTAMPTZ | |
+| `created_at` / `updated_at` / `deleted_at` | TIMESTAMPTZ | |
+
+Indexes: pending email unique; recipient; expiry; manager listing `idx_profile_invitations_profile_created` on `(profile_id, created_at DESC) WHERE deleted_at IS NULL`.
+
+### `profile_follows`
+
+One-way audience. Does not grant membership or a seat.
+
+| Column | Type | Notes |
+| --- | --- | --- |
+| `id` | UUID PK | |
+| `follower_user_id` | UUID → users | |
+| `profile_id` | UUID → profiles | |
+| `created_at` | TIMESTAMPTZ | |
+
+Unique `(follower_user_id, profile_id)`. Soft-delete keeps rows so restore
+is lossless. Permanent delete of the studio deletes these rows.
+
+## Connections (people)
+
+Person-to-person graph of the account — not third-party OAuth. Product: [Connections](/platform/connections).
+
+### `user_connections`
+
+Edge between two users (no self). Soft delete. Unique when active `(user_id, connected_user_id)`.
+
+### `user_connection_invitations`
+
+Invitation by email; status pending/accepted/rejected/canceled.
+
+## Feedback
+
+### `feedback_submissions`
+
+| Column | Notes |
+| --- | --- |
+| `author_user_id` | Who submitted |
+| `source_profile_id` / `name` | Origin |
+| `domain` | Product area |
+| `kind` | `bug` \| `idea` \| `praise` |
+| `message` | 1–8000 chars |
+| `source_url` / `source_path` | UI context |
+
+### `feedback_attachments`
+
+Images ≤ 10MB (`content_type LIKE 'image/%'`), blob metadata, `position`.
+
+## Billing audit
+
+### `billing_webhook_events`
+
+| Column | Notes |
+| --- | --- |
+| `event_id` | TEXT PK (idempotency) |
+| `event_type` / `payload` | Stripe event etc. |
+| `profile_id` | Nullable |
+| `outcome` | Handler outcome |
+| `received_at` | |
+
+### `plan_change_audit_log`
+
+Plan/status transitions with `source`, `event_id`, `occurred_at`.
+
+Stripe sync also updates period, interval, and current/scheduled quantities. Agent grants and consumption are documented in [Database → Agent](/database/agent).
+
+## Platform audit
+
+### `platform_audit_log`
+
+| Column | Notes |
+| --- | --- |
+| `profile_id` / `actor_user_id` | Context |
+| `domain` / `action` | What happened |
+| `resource_type` / `resource_id` / `resource_name` | Target |
+| `metadata` | JSONB |
+| `created_at` | |
+
+## Blobs (`000003`)
+
+Physical uploads and deletes live in Next (`@vercel/blob` in server actions). The API only persists metadata via `POST /api/blob/.../attachments`.
+
+### `blob_upload_intents` (legacy)
+
+Historical intents table; no longer written in the current flow.
+
+### `blob_deletion_outbox` (legacy)
+
+Historical deletion queue in the API; no longer written or processed. Next calls `del()` from the SDK after soft-delete/clear in Go.
+
+## Tags
+
+### `profile_tags`
+
+| Column | Notes |
+| --- | --- |
+| `name` / `normalized_name` | Unique per profile + domain_scope |
+| `color` / `description` | |
+| `domain_scope` | Tag domain. Default **`general`**. Values: `general`, `tasks`, `projects`, `finance`, `library`, `nutrition`, `health`, `notes`, `activities`. A picker for domain X lists `general` + X. |
+| `is_favorite` | |
+| `link_count` | Denormalized |
+| `created_by` | |
+
+### `profile_tag_links`
+
+`(tag_id, entity_type, entity_id)` unique. Polymorphic link. Canonical entity types include `task`, `project`, `activity`, `note`, `library_item`, `nutrition_recipe`, `health_checkin`, `finance_transaction`, and `finance_recurring_rule`.
+
+## Projects
+
+### `profile_projects`
+
+| Column | Notes |
+| --- | --- |
+| `name` / `description` / `color` | |
+| `deadline` / `deadline_key` | |
+| `priority` | Default `medium` |
+| `is_pinned` / `is_default` | Unique default when active per profile |
+| `task_count` | Maintained by **triggers** on tasks |
+| `completedTaskCount` (API) | Not a column: computed when listing/reading a project by counting non-deleted tasks with `status=done` |
+| `edit_count` | |
+| `archived_at` / `deleted_at` | |
+
+### `profile_project_links`
+
+Entity ↔ project (unique per entity). Canonical entity types include `task`, `note`, `library_item`, `nutrition_recipe`, `health_checkin`, `finance_transaction`, and `pomodoro_timer`. Activities are not linked to a project.
+
+The link is polymorphic (`entity_type` + `entity_id`, **no foreign key**), so nothing in the database cascades. Two rules keep the project **Profile links** tab honest:
+
+- **Delete side** — a module that deletes a linkable entity clears its link rows in the same transaction (`postgres.DeleteProjectLinks`). Entities with a trash + restore flow (`task`, `note`, `library_item`) keep the row while in trash and clear it on permanent delete (hard delete, trash purge, retention cron). Entities without restore (`nutrition_recipe`, `finance_transaction`, `pomodoro_timer`, `health_checkin`) clear it on delete.
+- **Read side** — `ListProjectLinks` resolves every link against its entity and **skips rows it cannot resolve** (entity soft-deleted or gone), so a trashed entity disappears from the tab and comes back if it is restored. A new linkable entity type must be added to `resolveProjectLinkTitles` or its links stop showing.
+
+### `project_comments`
+
+Soft-deletable comments.
+
+### `project_events`
+
+Feed: `event_type`, `feed_bucket`, `actor_user_id`, `payload`, optional `task_id` / `comment_id`.
+Retention ~400 days: when writing an event, expired rows of the same profile are purged (small batch; no cron).
+
+## Who writes
+
+| Go module | Tables |
+| --- | --- |
+| `users` / `profiles` | core, including `organizations`, `organization_members`, `organization_teams`, `organization_team_members`, `profile_team_assignments` |
+| `feedback` | feedback_* |
+| `billing` | webhooks + plan audit |
+| `blob` | intents / outbox |
+| `tags` / `projects` | tags + projects |
