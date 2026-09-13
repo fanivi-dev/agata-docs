@@ -1,0 +1,51 @@
+---
+title: "Library"
+description: "Library of items, collections, and reading/media tracking."
+---
+
+**Library** stores bookmarks, reading, and media with progress state.
+
+## Concepts
+
+| Concept | Use |
+| --- | --- |
+| **Item** | Title + optional URL + status (saved, in progress, finished…) |
+| **Subitem** | Chapters, episodes, parts |
+| **Collection** | Ordered grouping of items, shared with the whole studio. List/detail expose `itemCount` (non-deleted items only) and `createdBy`. |
+| **Tags** | Studio tags (`/tags`, domain `library` or `general`). Assigned from pickers; there is no `/library/tags` list. |
+
+## Insights
+
+The **Insights** tab (`/library/insights`) summarizes the pipeline by status/type, collections, tags, subitems, availability, and trash via a SQL aggregate (not a paginated scan). API: `GET /api/library/studios/:profileId/insights-summary`. The tagged-items KPI links to `/tags`.
+
+## Routes
+
+| Route | Use |
+| --- | --- |
+| `/library` | Items |
+| `/library/insights` | Insights (pipeline and collections) |
+| `/library/:itemId` | Detail |
+| `/library/collections` | Collections |
+| `/library/collections/:id` | Collection detail |
+
+## Tips
+
+- Consumption statuses (saved → finished) use library color tokens in the design system.
+- Archiving is separate from consumption status: a finished item remains in All and Finished until its `archivedAt` timestamp is set. Lists and Insights use the same archive state.
+- The legacy alias `completed` is normalized to **finished** (Finished tab, Insights, subitem progress, and badges).
+- Filter `?tags=` accepts a UUID or a tag name/slug; unresolvable tokens show as a chip and do not silently empty the list.
+- On cards you can **add / replace photo** (manual upload or **AI generation**: prompt, preview, confirm → Vercel Blob / `thumbnailUrl`).
+- Export the visible items to CSV from the filter bar.
+- An item with an availability date appears in Calendar automatically. Remove the date to remove it from Calendar; email delivery is optional.
+- Usually **on** in team studios.
+
+## Share
+
+Items and collections can be shared without membership (`members` \|
+`followers` \| `public`, default `members`). Public URLs:
+`/@handle/library/:itemId` and `/@handle/collections/:id`. A public
+collection lists only items the viewer may see. Those item URLs follow
+row visibility even when the studio catalog is private. Insights,
+trash, and archived items stay members-only.
+
+Theme: `library`.

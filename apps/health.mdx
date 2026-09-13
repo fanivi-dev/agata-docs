@@ -1,0 +1,53 @@
+---
+title: "Health"
+description: "Daily check-ins, metrics, and exercise routines."
+---
+
+**Health** is studio wellbeing tracking.
+
+## Modules
+
+| Module | Use |
+| --- | --- |
+| **Check-ins** | Landing: sleep quality, mood, energy, water, day notes |
+| **Trends** | Definitions and value series (route `/health/metrics`) |
+| **Routines** | Workout templates and blocks |
+| **Sessions** | Routine runs, optional start place, optional route line |
+
+## Routes
+
+| Route | Use |
+| --- | --- |
+| `/health` | Check-ins (landing) |
+| `/health/metrics` | Trends (also `/health/trends`) |
+| `/health/metrics/:metricId` | Trend detail (also `/health/trends/:metricId`) |
+| `/health/routines` | Routines (create/edit in a sheet) |
+| `/health/routines/:id` | Detail |
+## Trend points
+
+Open a trend and select a history row to edit its date, value, or note. Saving
+updates the existing point and refreshes the chart; it preserves the point ID,
+author, metric, and source metadata. Clear the note field to remove its text.
+The active date range includes points through its end date and excludes future
+points.
+
+## Routine details
+
+Routine Create/Edit saves the name, sport, summary, instructions, schedule,
+target duration, default intensity and training blocks. Clear an optional field
+and save to remove its value. Target duration accepts a positive whole number of
+minutes; leave it blank when the routine has no target. Files remain separate
+attachments managed from the routine editor.
+
+## Tips
+
+- Check-ins are anchored to a **local day** (`dateKey`), not only a timestamp. The sheet has a **Day** field so you can log a missed past day (today or earlier) without leaving the form.  
+- Export check-ins and the selected metric's values to CSV from their bars.  
+- Data is **shared in the studio** (`user_id` = author; each member can have their own check-in for the day).  
+- In team, health is usually **opt-in**.  
+- Quick capture of a check-in when you want to log without navigating.  
+
+Outdoor sessions and routines can attach an optional start place. Check-ins
+do not use places.
+
+Theme: `health`.
