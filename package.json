@@ -1,0 +1,13 @@
+{
+  "name": "docs",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Product docs (Docs7) — internal Agata documentation site",
+  "scripts": {
+    "dev": "docs7 dev",
+    "broken-links": "node ./scripts/check-broken-links.mjs"
+  },
+  "engines": {
+    "node": ">=20.19.0"
+  }
+}

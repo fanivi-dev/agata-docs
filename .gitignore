@@ -1,0 +1,9 @@
+# Docs7 local cache if the CLI writes next to the project
+.docs7/
+# Legacy Mintlify local tooling
+.mintlify/
+.mint/
+.DS_Store
+*.log
+.env
+.env.*

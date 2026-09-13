@@ -1,0 +1,64 @@
+---
+title: "Agata Docs"
+description: "Agata product documentation: general guide, design system, API, and database."
+---
+
+Agata is a **B2B-first studio with a personal mode**: tasks, projects, journal, finance, health, nutrition, library, and more — in one place.
+
+## Where to start
+
+| If you are… | Start with… |
+| --- | --- |
+| Product / design / onboarding | **[General](/getting-started/overview)** tab |
+| UI / visual design | **[Design system](/design-system)** tab |
+| HTTP integration or data | **[API](/api)** or **[Database](/database)** tab |
+| App / API engineering (in flux) | Frontend / Backend tabs *(draft; they will change)* |
+
+<CardGroup cols={2}>
+  <Card title="Eve" icon="robot" href="/eve">
+    The studio AI agent: runtime, tools by domain, and how to extend it.
+  </Card>
+  <Card title="General" icon="compass" href="/getting-started/overview">
+    What Agata is, studios, apps, and plans — no code.
+  </Card>
+  <Card title="Design system" icon="palette" href="/design-system">
+    Tokens, per-app themes, Base UI components and patterns.
+  </Card>
+  <Card title="API" icon="code" href="/api">
+    Auth, guides, errors, and interactive OpenAPI.
+  </Card>
+  <Card title="Database" icon="database" href="/database">
+    Postgres, conventions, and columns by table.
+  </Card>
+</CardGroup>
+
+## Quick product map
+
+| Area | What it includes | Typical routes |
+| --- | --- | --- |
+| **Daily** | Today (home), Notebook, Week plan | `/today`, `/notebook`, `/week-plan` |
+| **Work** | Tasks (inbox), projects, tags, activities, calendar | `/tasks`, `/projects`, `/calendar` |
+| **Apps** | Goals, finance, library, nutrition, health, pomodoro | `/goals`, `/finance`, … |
+| **Platform** | Auth, billing, connections, logs, feedback | `/billing`, `/connections`, `/logs` |
+
+## Product principles
+
+- **One studio, many apps** — same context, shells with their own theme.
+- **Today is home** — the studio landing is `/today`; Tasks is the inbox.
+- **Personal and team** — personal org or team; in team, finance/health/nutrition can be opt-in.
+- **i18n** — English and Spanish.
+
+## Status of the technical tabs
+
+| Tab | Status |
+| --- | --- |
+| General | Stable — product |
+| Eve | Stable — AI agent |
+| Design system | Stable — `packages/ui` v2 |
+| API | Stable — Go contract |
+| Database | Stable — SQL migrations |
+| Frontend / Backend | **Draft** — app architecture will change soon; do not invest in deep docs there yet |
+
+<Tip>
+  Missing a product page? Add it under General. A UI component? Under Design system. A whole feature (create / edit / delete, with QA and Vercel)? [Feature lifecycle](/architecture/feature-lifecycle). See also [Contributing to the docs](/architecture/contributing-docs).
+</Tip>

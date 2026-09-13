@@ -1,0 +1,317 @@
+{
+  "$schema": "https://mintlify.com/docs.json",
+  "theme": "mint",
+  "name": "Agata Docs",
+  "description": "Internal documentation for the Agata product: general, frontend, design system, backend, API, configuration and database.",
+  "colors": {
+    "primary": "#6366F1",
+    "light": "#818CF8",
+    "dark": "#4F46E5"
+  },
+  "favicon": "/favicon.svg",
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "General",
+        "groups": [
+          {
+            "group": "Getting started",
+            "pages": [
+              "index",
+              "getting-started/overview",
+              "getting-started/first-studio",
+              "getting-started/navigation",
+              "getting-started/faq"
+            ]
+          },
+          {
+            "group": "Concepts",
+            "pages": [
+              "concepts/product-model",
+              "concepts/organizations-studios",
+              "concepts/apps-and-shell",
+              "concepts/locale-and-i18n",
+              "concepts/glossary"
+            ]
+          },
+          {
+            "group": "Daily",
+            "pages": [
+              "workspace/today",
+              "apps/week-plan",
+              "workspace/notebook",
+              "workspace/command-palette",
+              "workspace/keyboard-shortcuts"
+            ]
+          },
+          {
+            "group": "Work",
+            "pages": [
+              "workspace/tasks",
+              "workspace/projects",
+              "workspace/tags",
+              "workspace/activities",
+              "workspace/calendar",
+              "workspace/reminders"
+            ]
+          },
+          {
+            "group": "Studio apps",
+            "pages": [
+              "apps/overview",
+              "apps/week-plan",
+              "apps/goals",
+              "apps/finance",
+              "apps/library",
+              "apps/nutrition",
+              "apps/health",
+              "apps/pomodoro",
+              "apps/agent"
+            ]
+          },
+          {
+            "group": "Platform",
+            "pages": [
+              "platform/auth",
+              "platform/billing-plans",
+              "platform/legal-readiness",
+              "platform/connections",
+              "platform/explore",
+              "platform/audit-logs",
+              "platform/feedback"
+            ]
+          },
+          {
+            "group": "Meta",
+            "pages": [
+              "architecture/feature-lifecycle",
+              "architecture/ai-tools",
+              "architecture/contributing-docs"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "Eve",
+        "groups": [
+          {
+            "group": "Getting started",
+            "pages": ["eve/index", "eve/quickstart"]
+          },
+          {
+            "group": "Runtime",
+            "pages": [
+              "eve/runtime/architecture",
+              "eve/runtime/auth-and-sections",
+              "eve/runtime/utility",
+              "eve/runtime/models",
+              "eve/runtime/credits"
+            ]
+          },
+          {
+            "group": "Tools",
+            "pages": [
+              "eve/tools/overview",
+              "eve/tools/platform",
+              "eve/tools/work",
+              "eve/tools/daily",
+              "eve/tools/goals",
+              "eve/tools/finance",
+              "eve/tools/health",
+              "eve/tools/nutrition",
+              "eve/tools/library"
+            ]
+          },
+          {
+            "group": "Extending",
+            "pages": [
+              "eve/extend/add-a-tool",
+              "eve/extend/conventions",
+              "eve/extend/evals"
+            ]
+          },
+          {
+            "group": "Meta",
+            "pages": ["eve/roadmap", "eve/changelog"]
+          }
+        ]
+      },
+      {
+        "tab": "Design system",
+        "groups": [
+          {
+            "group": "Foundations",
+            "pages": [
+              "design-system/index",
+              "design-system/principles",
+              "design-system/foundations",
+              "design-system/tokens-and-themes",
+              "design-system/app-themes",
+              "design-system/typography"
+            ]
+          },
+          {
+            "group": "Components and patterns",
+            "pages": [
+              "design-system/components",
+              "design-system/select",
+              "design-system/combobox",
+              "design-system/patterns",
+              "design-system/icons-and-motion",
+              "design-system/workflow",
+              "design-system/contribution"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "Frontend",
+        "groups": [
+          {
+            "group": "Draft",
+            "pages": ["frontend/index"]
+          }
+        ]
+      },
+      {
+        "tab": "Backend",
+        "groups": [
+          {
+            "group": "Draft",
+            "pages": ["backend/index"]
+          }
+        ]
+      },
+      {
+        "tab": "API",
+        "groups": [
+          {
+            "group": "Getting started",
+            "pages": [
+              "api/index",
+              "api/quickstart",
+              "api/authentication",
+              "api/conventions",
+              "api/errors"
+            ]
+          },
+          {
+            "group": "Guides",
+            "pages": [
+              "api/guides/create-a-task",
+              "api/guides/log-a-transaction",
+              "api/guides/edit-rich-text",
+              "api/guides/from-nextjs"
+            ]
+          },
+          {
+            "group": "Domain map",
+            "pages": [
+              "api/reference/overview",
+              "api/reference/platform",
+              "api/reference/tasks",
+              "api/reference/finance",
+              "api/reference/notebook",
+              "api/reference/domains"
+            ]
+          },
+          {
+            "group": "OpenAPI reference",
+            "openapi": "openapi/agata-v1.yaml"
+          },
+          {
+            "group": "Maintenance",
+            "pages": ["api/openapi", "api/changelog"]
+          }
+        ]
+      },
+      {
+        "tab": "Configuration",
+        "groups": [
+          {
+            "group": "Environments",
+            "pages": ["config/index", "config/app", "config/api"]
+          }
+        ]
+      },
+      {
+        "tab": "Database",
+        "groups": [
+          {
+            "group": "Getting started",
+            "pages": [
+              "database/index",
+              "database/conventions",
+              "database/migrations",
+              "database/guides/how-to-read-schema"
+            ]
+          },
+          {
+            "group": "Platform and identity",
+            "pages": ["database/platform", "database/better-auth"]
+          },
+          {
+            "group": "Work and journal",
+            "pages": [
+              "database/tasks",
+              "database/notebook",
+              "database/week-plan",
+              "database/activities",
+              "database/reminders"
+            ]
+          },
+          {
+            "group": "Domain apps",
+            "pages": [
+              "database/finance",
+              "database/goals",
+              "database/pomodoro",
+              "database/agent",
+              "database/library",
+              "database/health",
+              "database/nutrition",
+              "database/places"
+            ]
+          },
+          {
+            "group": "System",
+            "pages": [
+              "database/notifications",
+              "database/domains",
+              "database/changelog"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "logo": {
+    "light": "/logo/light.svg",
+    "dark": "/logo/dark.svg"
+  },
+  "navbar": {
+    "links": [
+      {
+        "label": "Monorepo",
+        "href": "https://cursor.com/codebase/fanivi/agata"
+      }
+    ]
+  },
+  "footer": {
+    "socials": {}
+  },
+  "search": {
+    "prompt": "Search the docs…"
+  },
+  "appearance": {
+    "default": "system"
+  },
+  "api": {
+    "mdx": {
+      "server": "http://localhost:8080/api"
+    }
+  },
+  "contextual": {
+    "options": ["copy", "view", "chatgpt", "claude"]
+  }
+}
