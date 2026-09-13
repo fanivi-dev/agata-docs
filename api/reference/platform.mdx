@@ -1,0 +1,78 @@
+---
+title: "Reference: platform"
+description: "Users, profiles, members, feedback, blob, and tags."
+---
+
+## Users (`/users/me`)
+
+| Method | Path | Summary |
+| --- | --- | --- |
+| `GET` | `/users/me` | Current user |
+| `GET` | `/users/me/session` | App boot: user + preferences + profiles (with permissions) + currentProfile |
+| `POST` | `/users/me/bootstrap` | Platform user bootstrap (session Bearer) |
+| `POST` | `/internal/users/bootstrap` | Mirror from Better Auth `user.create` (internal; `Authorization: Bearer <CRON_SECRET>`) |
+| `PATCH` | `/users/me/preferences` | Preferences (theme, regional) |
+
+`GET /users/me/session` aggregates memberships and basic per-profile permissions (`canManageProfile`, `canInvite`, `canViewAuditLogs`) plus the `settings` blob (e.g. `nutritionMealTypes`). Preferences still live in Postgres (`user_preferences`); if `UPSTASH_REDIS_REST_URL` and `UPSTASH_REDIS_REST_TOKEN` are configured, the full response is cached in Upstash (~20 min) and invalidated when prefs, memberships, or profile settings change. That cache **does not** take part in the mirror to `users`.
+| `GET` | `/users/me/connections` | Connections |
+| `DELETE` | `/users/me/connections/:connectionId` | Remove connection |
+| `GET/POST` | `/users/me/connection-invitations` | List / send |
+| `POST` | `…/accept` `…/reject` `…/cancel` | Invitation cycle |
+| `GET` | `/users/me/profile-invitations` | Pending profile invitations |
+| `GET` | `/users/me/profile-trash` | Profile trash |
+
+## Profiles (`/profiles`)
+
+| Method | Path | Summary |
+| --- | --- | --- |
+| `GET` | `/profiles` | List for the user |
+| `POST` | `/profiles` | Create |
+| `GET` | `/profiles/:profileId` | Detail |
+| `PATCH` | `/profiles/:profileId` | Update |
+| `POST` | `…/favorite` | Mark / unmark favorite (`{ isFavorite }`, per user) |
+| `GET` | `…/access` | Access summary |
+| `GET` | `…/usage` | Usage / plan counters (Upstash snapshot `profile:usage:{id}`, TTL 5m) |
+| `GET` | `…/audit-logs` | Audit (admin); filters `domain`, `actorUserId`, `action`, `from`/`to`; `meta.total` |
+| `GET` | `…/audit-logs/search` | Audit search (same filters + `q`) |
+| `POST` | `…/soft-delete` `…/restore` | Soft delete |
+| `DELETE` | `…/permanent` | Permanent delete |
+| `GET/POST` | `…/members` | Members |
+| `PATCH/DELETE` | `…/members/:userId` | Update / remove |
+| `GET/POST` | `…/invitations` | Invitations |
+| `POST` | `/profiles/invitations/:id/accept|reject|cancel` | Respond to invitation |
+| `GET/POST` | `…/default-project` | Default project |
+| `GET` | `…/work-bootstrap` | Work bootstrap (`projection=sidebar\|picker\|full`, independent cursors) |
+
+## Feedback
+
+| Method | Path | Auth |
+| --- | --- | --- |
+| `POST` | `/feedback/profiles/:id` | User (profile member) |
+| `GET` | `/internal/feedback` | `CRON_SECRET` |
+| `GET` | `/internal/feedback/:feedbackId` | `CRON_SECRET` |
+
+Reads live at `/internal/feedback*`: they return feedback from every profile with no scope or membership, so they are only called server-to-server from Next with `CRON_SECRET`. The user gate (`FEEDBACK_ADMIN_EMAILS` and/or `FEEDBACK_ADMIN_PASSWORD`) is applied in the app before the call. Create accepts `kind` (`bug` \| `idea` \| `praise`).
+
+`GET /internal/feedback` accepts `domain`, `cursor`, and `limit`, and responds `{ data: FeedbackSubmission[], meta: { next_cursor, has_more } }`.
+
+## Blob
+
+Bytes are uploaded and deleted in Next (server actions + `@vercel/blob`). The API only attaches metadata to entities.
+
+| Method | Path |
+| --- | --- |
+| `POST` | `/blob/profiles/:id/attachments` |
+
+Domain image `DELETE`/`PATCH` (tasks, notes, activities, health, library, nutrition) may return `{ blobPathnames: string[] }` so Next can delete storage.
+
+## Tags
+
+| Method | Path |
+| --- | --- |
+| `GET/POST` | `/tags/profiles/:id` |
+| `GET/PATCH/DELETE` | `…/:tagId` |
+| `POST` | `…/:tagId/favorite` |
+| `GET` | `…/:tagId/detail-graph` `…/assignment-candidates` `…/links` |
+| `POST/DELETE` | entity links |
+
+Full playground: **OpenAPI reference** group in the sidebar.

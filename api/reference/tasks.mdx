@@ -1,0 +1,64 @@
+---
+title: "Reference: tasks and work"
+description: "Tasks, activities, calendar/reminders, and projects."
+---
+
+## Tasks
+
+Prefix: `/tasks/profiles/:profileId`
+
+Typical operations (see OpenAPI tag **Tasks** for the exhaustive list):
+
+| Action | Method | Path (relative to the prefix) |
+| --- | --- | --- |
+| List / create | `GET` `POST` | `/` or canonical list path |
+| Insights summary | `GET` | `/insights-summary?todayLocalDateKey=` |
+| Detail / update / delete | `GET` `PATCH` `DELETE` | `/:taskId` |
+| Document | `GET` `PUT` | `/:taskId/document` |
+| Comments / subtasks / images | various | satellites |
+
+### Subtasks
+
+`POST /:taskId/subtasks` creates a child task and returns an `id` that opens with the normal detail `/:id` or `/:id/detail`. `GET /:taskId/subtasks` lists the parent's subpages; `PATCH` and `DELETE` on `/:taskId/subtasks/:subtaskId` remain available for compact editing.
+
+Accepted statuses are `todo`, `in_progress`, `done`, and `canceled`. For parent progress, the last two count as resolved subtasks.
+
+Contract invariants:
+
+- Creating a subtask on another subtask responds `VALIDATION_ERROR`.
+- The child inherits profile, project, and initial priority from the parent.
+- `parentTaskId` and `parentTaskName` appear in a child's detail.
+- Changing a child's project directly responds `VALIDATION_ERROR`; moving the parent propagates the project.
+- Closing a parent with `todo` or `in_progress` children responds `VALIDATION_ERROR`.
+
+Guide: [Create a task](/api/guides/create-a-task) · [Rich text](/api/guides/edit-rich-text)
+
+## Activities
+
+`/activities/profiles/:profileId`
+
+- CRUD activity
+- Logs: `POST /:activityId/logs` requires `dateMs` (epoch milliseconds), only accepts activities with `kind = habit`, and rejects dates earlier than their creation
+- Streaks and completion rate are derived from the logs; canceling a period does not break the streak
+- Reset history: `POST /:activityId/reset-history` (habits only) soft-deletes logs, sets streaks/rate to 0, and restarts `createdAt`
+- Delete image
+- Insights: `GET /insights-summary?todayLocalDateKey=`
+
+## Calendar
+
+`/calendar/profiles/:profileId`
+
+| Resource | Paths |
+| --- | --- |
+| Reminders and events | `/reminders`, `/reminders/:id` (`kind: reminder | event`; events use inclusive `endLocalDateKey`) |
+| Agenda | `/agenda` (`startDateKey`, `endDateKey`, `profile=chip\|full`) |
+| Insights | `GET /insights-summary?todayLocalDateKey=&ianaTimeZone=` |
+
+## Projects
+
+Registered in the projects handlers (paths in OpenAPI tag **Projects**): listing, detail, comments, events, links.
+
+## Design notes
+
+- Task detail is **not** the source of truth for the editor.
+- Customer-facing plan limits: `members_per_profile`, `agent_credits_per_month`. Task, reminder, activity, and project counts are unlimited for customers; private abuse safeguards may return `CAPACITY_GUARD_REACHED`.

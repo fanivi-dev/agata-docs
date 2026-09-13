@@ -1,0 +1,67 @@
+---
+title: "Goals"
+description: "Studio goals with milestones and links."
+---
+
+**Goals** defines higher-level objectives and their progress.
+
+## What it includes
+
+- Goal list and detail  
+- **Milestones**  
+- **Links** to other studio entities  
+- Optional **destination** on a goal or milestone (shared `places` pin: name). Linked Health routines or Library items reuse those entities' pins — the goal row does not copy coordinates.  
+- Cover image (upload or AI generation; same blob flow as activities)  
+- **Vision board** — visual collages (images, quotes, notes, and linked goals). Vision-board pins stay on the canvas; they are not geography.  
+- Quick capture of goals  
+
+The list uses a portfolio banner (average progress + goals at risk) and compact cards with a thumbnail. Detail has no hero: the image sits next to the title; the progress block is the control for the active mode; inactive modes are kept and labeled.
+
+## Vision board
+
+The board list shows a collage cover per board (favorite, intention, item and linked-goal counts, archived state). The canvas is a direct-manipulation surface:
+
+- **Add** creates images, quotes, notes, or a linked goal; the empty canvas offers the same four actions.
+- **Images** can be dropped anywhere on the canvas or pasted from the clipboard — they land where they were dropped. Pasted text becomes a note.
+- **Pins** are dragged to move, resized from the corner handle, and tilted from the handle above the selection (hold Shift to snap to 15°).
+- **Selecting a pin** opens a floating toolbar (edit, details, layer order, duplicate, open goal, remove) that works on touch as well as desktop. Double-click text to edit it in place.
+- **Keyboard:** arrows nudge by one grid step (Shift for five), `Delete` removes, `Cmd/Ctrl+D` duplicates, `[` / `]` change layer order, `Enter` edits, `Esc` deselects. `Present` opens a full-screen view, `Esc` exits.
+- **Linking a goal** only offers goals that are not already on the board; archived goals are never offered, and the picker states how many goals the board already holds.
+
+## Share
+
+A goal can be shared without membership (`members` \| `followers` \|
+`public`, default `members`). Public URL: `/@handle/goals/:goalId`
+(title, description, progress, dates, milestones, image). The URL
+follows row visibility even when the studio catalog is private. Linked tasks,
+notes, and finance ids stay off the public DTO. Vision boards stay
+members-only.
+
+## Insights
+
+The **Insights** tab (`/goals/insights`) summarizes active, at risk, overdue, average progress, breakdown by status/mode, and upcoming goals. API: `GET /api/goals/studios/:profileId/insights-summary?todayDateKey=YYYY-MM-DD`.
+
+- **Portfolio rule:** archived goals are excluded from banner KPIs and Insights status/mode breakdowns (same selector as list scope **All**).
+- **Upcoming targets:** active goals with a target date from today through the next **90 days**.
+- **At risk:** active goal, target within 7 days or past due, and progress below 65%.
+
+## Routes
+
+| Route | Use |
+| --- | --- |
+| `/goals` | List |
+| `/goals/vision-board` | Vision board list |
+| `/goals/vision-board/:boardId` | Vision board canvas |
+| `/goals/insights` | Insights (risk and progress) |
+| `/goals/:goalId` | Detail |
+
+## Tips
+
+- Progress mode can be manual or other modes depending on the product.  
+- Attach a cover image (upload or AI) from the list or the detail.  
+- Export the goals list to CSV from the filter bar.  
+- Studio goals are unlimited for customers. Private abuse safeguards may return `CAPACITY_GUARD_REACHED`.  
+- Vision board: up to 50 boards per studio and 80 items per board. The canvas stores position, size, tilt, and layer order; images go to the private blob.  
+- Conceptual bridge with Finance **savings**.  
+
+Theme: `goals`.

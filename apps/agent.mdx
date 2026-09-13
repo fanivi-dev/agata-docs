@@ -1,0 +1,37 @@
+---
+title: "Agent"
+description: "Studio AI chat with the Eve runtime. Full documentation lives in the Eve tab."
+---
+
+**Agent** is the product entry to the studio AI agent, always scoped to a studio. The agent is called **Eve** (chrome/nav: Agent; persona in chat and memory: Eve).
+
+<Card title="Eve documentation" icon="robot" href="/eve">
+  Runtime, auth and sections, credits, the 173 tools by domain (narrow + dispatcher), and how to add one.
+</Card>
+
+## Product entry
+
+- Shell **sidebar**: **Agent** item (always-on like Tasks).
+- Studio chrome **header**: **Agent** button, opens a side panel with a simple chat.
+- **Dedicated page** `/studios/:id/agent` (and `/agent/:chatId`), with a conversation rail (New chat, Memory, **History** + recent chats). **History** opens an overlay with search, a date-grouped list, and a preview of the selected chat (Enter to open; the author can rename or delete). Go and Enter only open an item present in the filtered results; an unmatched search cannot open a hidden conversation or start a new one.
+- Theme `agent`. New chats are private by default; the author can share them (read-only for everyone else).
+- The composer supports images and dictation: the microphone button records up to one minute, transcribes with Grok STT, and adds the result to the draft before sending.
+- Chat images are uploaded to **private Vercel Blob** (`studios/{profileId}/agent/{chatId}/image/…`) and served via the `/api/blob` proxy. The Eve model still receives a `data:` URL on the turn; in Postgres, `message.received` URLs point to the proxy. Deleting a chat removes the objects under the chat prefix.
+- Each studio has a plan-sized Agent image pool: **50 MB Free, 250 MB Pro, or 1 GB Business**. The composer AI credits popover links to a usage modal (space used / limit, file count) with an action to **delete all** images under `studios/{profileId}/agent/` and free space.
+
+| Route | Use |
+| --- | --- |
+| `/agent` | New chat |
+| `/agent/:conversationId` | Eve session |
+
+## Where each topic lives
+
+| Topic | Page |
+| --- | --- |
+| Runtime, channel, and persistence | [Eve → Architecture](/eve/runtime/architecture) |
+| Auth and permissions by section | [Eve → Auth and sections](/eve/runtime/auth-and-sections) |
+| Privacy, receipts, memory, context | [Eve → Utility](/eve/runtime/utility) |
+| Monthly credits | [Eve → Credits](/eve/runtime/credits) |
+| Tool catalog | [Eve → Tools](/eve/tools/overview) |
+| Add a tool | [Eve → Add a tool](/eve/extend/add-a-tool) |
+| Database schema | [Database → Agent](/database/agent) |
