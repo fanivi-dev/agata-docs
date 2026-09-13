@@ -1,0 +1,57 @@
+---
+title: "Today"
+description: "Studio home: what to do now, capture, and the day in a single view."
+---
+
+**Today** (`/today`) is the studio home. It summarizes the civil day you are viewing — agenda, focus, habits, check-in, and backlog — so you can see what to do at a glance.
+
+Visual theme: `today`. Each row on the day line keeps the `data-app-theme` of its source domain.
+
+## What you see
+
+1. **Date control** — arrows, **Today** button, Mon–Sun strip, and a calendar anchored to the trigger to jump to any day (`?date=YYYY-MM-DD`). With no param, it is the user's today. The same control goes **first** on Activities (Today view), [Week plan](/apps/week-plan), [Nutrition Meals](/apps/nutrition), and Nutrition Planner.
+2. **Day summary and capture** — compact focus, plan, habits, and backlog totals, with a thin waking-day progress bar on the current day. Full-width task/note capture sits before the agenda and keeps the **Keep visible until resolved** option.
+3. **Next action** — a compact panel beside the day map shows what is happening now or coming next, its clock context, the following item, and Open/Pomodoro/postpone actions. Selecting any agenda row shows that item in this panel. The background and actions follow the selected item’s owning domain. **Back to next up** restores automatic selection. Selection is scoped to the viewed date; if an item disappears after a write, the panel returns to the automatic next item. On narrow screens this panel appears before the agenda.
+4. **Day map** — the main column is a chronological view of the Calendar projection for that day. Week plan, Tasks, planned meals, Activities, and every other operational source come from the same agenda response. Each group keeps its filter, count, domain color, and domain-specific actions.
+5. **Rail** — focus for the viewed day (without mixing overdue), backlog (relative to real today), and check-in in separated sections below the next action. Items at the same time stack on the line without repeating the clock.
+
+The line also includes items already completed that day, dimmed, with their status visible. Time blocks are completed automatically when their end time passes; this is a clock-derived display state and does not create an activity log or streak. Time blocks on past days are therefore complete, while future ones stay planned. Habits and Week plan items can be marked done from the row; a linked habit or task follows the same completion as on the Week plan board. Activity and Week plan data only enrich Calendar rows with completion, streak, and actions; they never add a second independent row. Reminders and other sources stay under **Calendar** for filtering, while each row keeps the color of its real domain (for example, Finance, Goals, or Library). The rail still reads its owning domains directly.
+
+The source filters retain their counts and independent toggles. The day map links to Calendar and keeps rows compact when many items share a time. The rail keeps backlog previews and bulk moves, the three-choice **Heavy / Normal / Light** day rating, full check-in capture, while scheduled habits remain on the day map with their completion actions and streaks. On narrow screens the order is summary, capture, next action, day map, then rail. Loading uses the same layout; partial failures keep the available sections visible. Light and dark appearances use the existing Astryx theme tokens.
+
+## Selected item actions
+
+Rows are selectable with pointer or keyboard, including completed and canceled items. The clock marker and next-up status still follow the real schedule while another item is selected.
+
+- **Tasks:** mark done or postpone that task to the day after the viewed date.
+- **Activities:** mark a habit done, undo its completion, cancel that day’s occurrence, or restore a canceled occurrence. Canceling does not delete the activity or stop its recurrence. Time blocks retain automatic completion after their end time.
+- **Week plan:** mark done or undo completion, preserving linked task/activity updates.
+- **Reminders and events:** open Calendar, where their schedule can be edited. Other sources retain their owning-domain destination.
+- **Pomodoro:** available for open tasks, activities, and week-plan items on the current day.
+
+All actions target the item displayed in the panel; unrelated overdue tasks are never postponed from it.
+
+## How “next” is chosen
+
+The **Now** banner follows the clock of the day you are viewing, not the first incomplete block:
+
+- **In progress** — a timed item wins if `start ≤ now < end` (a block that started yesterday or at 00:00 is still now until it ends). With no end time, only a short window around the start counts. The current-time line stays immediately above that item for the whole interval.
+- **Next up** — if nothing is in progress, the next start. The day line marks the same item as the hero, and countdowns of at least one hour use hours plus any remaining minutes.
+- **Already ended** — `end ≤ now` (or, with no end, a start already far from that window) is past. It does not stay in the hero even if incomplete or unskipped; it can remain on the line or in Needs attention if it is a task.
+- **Nothing on the clock** — if every block for the day has ended, the hero uses the first Focus task or an untimed habit, or the honest empty state. It does not reopen the first overdue block.
+- **Another day** (`?date=` different from real today): planned view, without marking now/overdue with the live clock. On a past day it summarizes what stayed open; on a future day, the first planned item.
+
+Scheduled habits live on the day map. Today has no separate habits checklist; manage the full habit list in Activities. Untimed habits can still be suggested as the next action.
+
+## Routes
+
+| Route | Use |
+| --- | --- |
+| `/today` | User's civil today |
+| `/today?date=YYYY-MM-DD` | That day (past or future) |
+
+Capturing a task assigns it to the day you are viewing. Moving backlog items “here” sends them to that day; on real today the copy stays “to today”.
+
+## Related
+
+- [Notebook](/workspace/notebook) · [Week plan](/apps/week-plan) · [Tasks](/workspace/tasks) · [Calendar](/workspace/calendar) · [Activities](/workspace/activities) · [Health](/apps/health) · [Pomodoro](/apps/pomodoro)

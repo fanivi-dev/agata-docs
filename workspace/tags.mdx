@@ -1,0 +1,57 @@
+---
+title: "Tags"
+description: "Reusable studio labels."
+---
+
+**Tags** classify tasks and other entities across the studio.
+
+## Domain (`domain_scope`)
+
+Each tag has a **domain**. The default is **`general`**.
+
+| Domain | Where it appears in pickers |
+| --- | --- |
+| `general` | Every app |
+| `tasks`, `projects`, `finance`, `library`, … | Only in that app **and** alongside the general ones |
+
+**Tags are created only from `/tags`** (name, color, domain). Pickers in tasks, finance, library, etc. only **assign** existing tags. There are no per-app list surfaces (e.g. `/library/tags` does not exist).
+
+`GET /tags?domainScope=tasks` (pickers) returns `general` + `tasks` tags (not only `tasks`).
+
+The admin list `/tags` uses `domainScopeExact=true` to filter **only** that domain (without mixing in `general`).
+
+## `/tags` list
+
+Filters and sort via query string (BFF → Go):
+
+| Param | Effect |
+| --- | --- |
+| `searchTerm` | Search by name (`search` in API) |
+| `domainScope` + `domainScopeExact=true` | Exclusive domain |
+| `favoriteTags=true` | Favorites only |
+| `unusedOnly=true` | No links (`link_count = 0`) |
+| `hasTasks` / `hasProjects` / `hasDescription` | Content / links |
+| `sortBy` | `createdAt` (default) · `name` · `linkCount` |
+| `orderBy` | `asc` · `desc` |
+
+Bulk actions (select mode): favorite, **recolor**, delete.
+
+## What you can do
+
+- Create and edit tags on `/tags` (name, color, domain, favorite)
+- View detail and linked entities (deep Open when there is an entity route)
+- Assign tags from pickers in each app (filtered by domain)
+- Filter unused and favorites, and sort by usage or name
+
+## Routes
+
+| Route | Use |
+| --- | --- |
+| `/tags` | List |
+| `/tags/:tagId` | Detail |
+
+## Tips
+
+- There is a tag limit per plan.
+- Use `general` for cross-cutting labels; a concrete domain for an app taxonomy (e.g. finance categories).
+- Favorites appear first in the studio sidebar.

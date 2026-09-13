@@ -1,0 +1,157 @@
+---
+title: "Tasks"
+description: "Studio task inbox."
+---
+
+**Tasks** is Agata's **inbox**. The studio home is **Today** (`/today`); the inbox stays at `/tasks`.
+
+## What you can do
+
+- View the studio **inbox** (cards or list)
+- Open a task **detail**
+- Use the **Focus** page from the studio sidebar or command palette
+- Enter **selection mode** from the inbox toolbar (select control, or shortcut `X`) for bulk changes
+- Assign project, tags, dates, reminders, and an optional **place** (name)
+- **Assign** the task to one or more studio members and see who created it
+- Write the body in the **rich-text editor**
+- Capture tasks on the fly (**quick capture**, shortcut **C**)
+- Mark a dated task as a **must-do** so it stays visible across the studio on and after its due day
+- See inbox and studio shortcuts with **?** — [Keyboard shortcuts](/workspace/keyboard-shortcuts)
+
+## Inbox: card and list
+
+In the inbox, **status** and **priority** show as read-only badges. Clicking the card (or the row title) opens the detail; the favorite star remains a quick action (visible on hover, or always if the task is already a favorite). Property changes happen on the task **detail** or, for several at once, in **selection mode** (sticky bottom bar: status, priority, project, date, delete). In selection mode, **Shift+click** selects ranges.
+
+Rows/cards with a past due date show an **Overdue** badge (same tone as Focus).
+
+**Group** (by project or status) applies to both the **list** and **cards** views. If there are no assignees, no label is shown and no empty space is reserved on any surface.
+
+The **list** view shows the same contextual information as the card: status, priority, tags, subtasks, project, date, and assignees.
+
+All studio content is visible to members. Collaboration is based on **who created** each item and **who is assigned** (tasks, activities, and calendar reminders) — not on private/public visibility.
+
+## Must-dos
+
+A must-do is an ordinary task with a personal **Keep visible on its due day** preference. It does not create a second note or a calendar reminder.
+
+- On the due day, it appears in a compact bar below the studio navigation on every studio page.
+- If it is still open after midnight, it remains visible as **Overdue**.
+- **Done** completes it, **Tomorrow** moves its due date, and **Stop keeping visible** removes only your personal pin.
+- Completing, canceling, archiving, deleting, or clearing the due date removes all attention pins for that task. Reopening does not restore them automatically.
+- Pins are personal: another studio member can pin the same task independently.
+
+Create one from the task form, the pin control in Today capture, the command palette action **Add must-do for today**, or by asking Eve to create a must-do. Future pins remain hidden until their due date.
+
+API:
+
+- `GET /api/tasks/studios/:profileId/attention?todayLocalDateKey=YYYY-MM-DD`
+- `PUT /api/tasks/studios/:profileId/:taskId/attention`
+- `DELETE /api/tasks/studios/:profileId/:taskId/attention`
+
+## Subtasks as subpages
+
+A subtask is a **task with its own page**: it has a URL, rich-text description, properties, assignees, tags, attachments, and comments. From the parent task, each row opens that subpage, and the subpage keeps a visible link back to its parent.
+
+To keep the hierarchy predictable:
+
+- There is only **one level**: a subtask cannot create other subtasks.
+- The project is inherited from the parent task. When you move the parent, its subtasks move with it.
+- A parent task cannot go to `done` or `canceled` while it still has open subtasks; in progress, `done` and `canceled` count as resolved.
+- Sending a parent task to the trash also sends its active subtasks; restoring it recovers the ones that were deleted with it.
+- Subtasks are not duplicated in the inbox, Focus, boards, or project counts. They are found from their parent task and via global search; if they have a date or reminder, they also appear in Calendar.
+- Subtasks do not consume another task quota from the plan.
+
+## Inbox order
+
+The main view prioritizes actionable work by date: first tasks with today's or a future date (nearest to farthest), then tasks **with no date**, and overdue tasks last. Within each group, last update is the tie-breaker.
+
+## Routes (product)
+
+| Route | Use |
+| --- | --- |
+| `/studios/:id/tasks` | Inbox |
+| `/studios/:id/tasks/focus` | Focus: overdue and upcoming work |
+| `/studios/:id/tasks/:taskId` | Detail |
+| `/studios/:id/tasks/trash` | Trash for deleted tasks |
+| `/studios/:id/projects` | Projects |
+| `/studios/:id/tags` | Tags |
+| `/studios/:id/insights` | Insights (workload and progress) |
+
+**Trash** opens from the studio sidebar or command palette. From there you can restore or permanently delete. `?taskScope=trash` on `/tasks` **redirects** to `/tasks/trash` (it is not a list scope).
+
+**Focus** is its own page, reachable from the studio sidebar or command palette. It always shows the Overdue / Today / Next 3 days / Next 7 days sections (with empty states if there are no items). Focus and Trash do not show the List / Insights collection tabs.
+
+### Shortcuts (inbox)
+
+Press `?` for the overlay. Minimum set: `C` create, `X` selection, `J`/`K` move focus, `Enter` open, `Space` (in selection) toggle, `Esc` exit selection.
+
+### Recurrence
+
+Tasks **do not** have a Repeat/recurrence property in v1 (columns removed in migration `000021`). Calendar recurrence lives in Activities.
+
+Tasks sections live in the sidebar under **Tasks** (List / Insights). Projects and Tags stay as their own collapsible lists below the primary destinations.
+
+## Insights
+
+The **Insights** tab summarizes actionable work: open, overdue, due today, in progress, and completed this week. The KPI tiles (incl. completed this week) are links to the filtered inbox. It also shows breakdown by status/priority, load by date (next 14 days), and project progress.
+
+Completed counts (and done/canceled totals) **include** archived items; open / overdue / due today **exclude** archived items — aligned with [Archive](#archive).
+
+API: `GET /api/tasks/studios/:profileId/insights-summary?todayLocalDateKey=YYYY-MM-DD`.
+
+## Relation to the rest
+
+| Surface | Relation |
+| --- | --- |
+| [Projects](/workspace/projects) | Every task lives in a project |
+| [Tags](/workspace/tags) | Cross-cutting classification |
+| [Calendar](/workspace/calendar) | Time view |
+| [Pomodoro](/apps/pomodoro) | Focus sessions |
+| [Goals](/apps/goals) | Higher-level objectives |
+
+## Plan limits
+
+The number of tasks (and associated reminders) depends on the plan. See [Billing](/platform/billing-plans).
+
+## Archive
+
+**Archive** only affects the **active list** (Tasks inbox and live-work pickers). It is not a deletion.
+
+| Leaves | Stays in |
+| --- | --- |
+| Inbox / main list (default) | [Project](/workspace/projects) detail (Kanban, table, timeline, progress) |
+| Focus and open-work agenda | [Tags](/workspace/tags) |
+| | Global search (with optional filter) |
+| | Metrics and reports (e.g. completed in the period) |
+
+Marking a task **done** or **canceled** **archives** it automatically (it leaves the inbox). Reopening the status unarchives it. The inbox **Archived** filter shows only archived tasks.
+
+The list API uses `includeArchived=true` on contextual views (project, etc.). By default the list excludes archived items. Search (`GET .../search`) **includes** archived items unless `includeArchived=false`.
+
+## Rich-text editor
+
+The task detail is a **document page** (same model as the
+[notebook](/workspace/notebook)): flush title, compact properties, and
+ProseMirror body with no sticky toolbar. Formatting appears in the **selection bubble**,
+the **insertion strip** on an empty line, and the `/` menu. Click and drag
+across blocks (or in the left margin) to select a range for bulk delete or
+drag-and-drop reorder; the left-margin handle moves a single block or the
+whole selection. The placeholder
+reads `Write here, or type / for commands…`. Studio chrome shows
+the sync status (**Saving… / Saved**). If a save returns a version conflict,
+the editor shows a compact bar: **Use latest** keeps the server document and
+discards the local draft; **Keep my version** writes the local draft against
+the newly displayed server version. The draft survives remount until a choice
+or a confirmed save.
+
+The body supports ProseMirror documents with anti-abuse limits: **50 000**
+characters, **20** images, and **5 MB** per image. Technical detail in
+[Edit rich text](/api/guides/edit-rich-text).
+
+## Usage tips
+
+- Use **focus** when you want to cut noise.
+- Use a **must-do** only for work that should interrupt navigation until it is resolved; use an email reminder when delivery at a specific time matters.
+- Export to CSV from the Tasks, Projects, and Tags bars.
+- Long body text goes in the detail editor, not only in the title.
+- Projects keep work grouped (including completed/archived); the inbox remains the entry point for what is active.

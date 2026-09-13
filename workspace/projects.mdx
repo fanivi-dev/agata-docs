@@ -1,0 +1,45 @@
+---
+title: "Projects"
+description: "Group studio work."
+---
+
+**Projects** organize tasks and related activity.
+
+## What you can do
+
+- List projects in a **dense grid** or a **table grouped by status**
+- Filter by scopes (All / In progress / Overdue / Completed / Archived) and search by name — query params feed the server listing; the title counter reflects the filtered total
+- Create, pin, and mark default
+- Open the detail: **short rail** (meta, progress, member avatars, recent activity) + board on the right
+- Group the board by status or priority, and hide board columns you do not use (saved per user)
+- Create, edit, and delete comments from the detail
+- Duplicate, pin, archive, or restore from the detail `…` menu (archive offers undo in the toast); delete from the same menu with confirmation
+
+## Routes
+
+| Route | Use |
+| --- | --- |
+| `/projects` | List (grid or table) |
+| `/projects/:projectId` | Detail (rail + board) |
+
+## Board columns
+
+The Kanban board groups **by status** or **by priority**. The **Columns** menu on the
+board toolbar hides or shows the columns of the active grouping; at least one column
+always stays visible.
+
+The selection is per user (not per project) and is saved in
+`user_preferences.appearance.tasksKanbanHiddenColumns`, so it follows you across
+projects and devices. Hiding a column only hides it from the board — the tasks in it
+still count toward progress and stay in the table and timeline.
+
+## Tasks in the detail
+
+**Completed or archived** tasks stay visible on the project (Kanban, table, timeline, and progress). Archiving only removes them from the [Tasks inbox](/workspace/tasks), not from the project board.
+
+Archiving the **project** hides it from the active projects list; the detail by URL and related views (e.g. tags) can still see it.
+
+## Tips
+
+- Every **task** belongs to a project (even a studio default).
+- Quantity limits depend on the [plan](/platform/billing-plans).
