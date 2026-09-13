@@ -1,0 +1,80 @@
+---
+title: "Platform"
+description: "Identity, UI handoff, profile reads, product docs, and feedback. Always available."
+---
+
+Gated on the `agent` section (always granted). 15 tools across platform reads/actions, capability and profile search, memory, and product docs.
+
+## Search and activation
+
+| Tool | R/W | Notes |
+| --- | --- | --- |
+| `search_agent_tools` | R | Finds authorized capability metadata and activates at most the bounded matching groups for the next progressive step. Discovery never grants a section. |
+| `search_profile` | R | Parallel server search over authorized Tasks, Projects, Notes, Activities, Goals, and Library. At most five hits per source and twenty combined; excludes bodies, money amounts, and health values; reports unavailable sources instead of presenting a partial scan as exhaustive. |
+
+Use current screen/entity context first. Use `search_profile` to resolve an unknown title across domains, then the exact domain read when details are needed.
+
+## Identity and handoff — `platform.ts`
+
+| Tool | R/W | Notes |
+| --- | --- | --- |
+| `whoami` | R | Session attributes: userId, role, sections, timezone, `todayDateKey` |
+| `list_profile_members` | R | `GET /profiles/{id}/members` — resolve names → ids |
+| `open_profile_view` | R | Studio deep link (`StudioPaths` / `FinancePaths` / …). Handoff to the review UI. |
+| `export_csv` | R | Export an accessible table as a downloadable CSV. Pages in blocks of 200 and caps output at 2,000 rows. |
+
+### Export CSV
+
+`export_csv` covers:
+
+- Work: `tasks`, `projects`, `tags`, `reminders`
+- Finance: `finance_transactions`, `finance_accounts`, `finance_budgets`, `finance_debts`, `finance_recurring_rules`, `finance_savings_goals`
+- Daily and goals: `activities`, `activity_logs`, `goals`
+- Health and library: `health_checkins`, `health_metric_entries`, `library_items`
+- Platform: `audit_logs`
+- Nutrition: `nutrition_recipes`, `nutrition_meal_logs`, `nutrition_inventory`, `nutrition_shopping`
+
+Optional filters include `fromDateKey` / `toDateKey`, context ids, and domain-specific filters such as status, tag section, or audit domain. The tool validates the resource's section before reading; `audit_logs` also keeps the API's owner/admin requirement. If it hits the cap, it returns `truncated: true`.
+
+## Reads and feedback — `platform_read.ts`
+
+| Tool | R/W | Endpoint |
+| --- | --- | --- |
+| `get_profile_overview` | R | profile + access |
+| `list_profile_invitations` | R | profile invitations |
+| `get_profile_usage` | R | usage / limits |
+| `get_agent_credit_status` | R | agent credits |
+| `list_audit_logs` | R | may 403 if there is no permission |
+| `list_connections` | R | `GET /users/me/connections` |
+| `submit_feedback` | W | platform write (feedback) |
+
+## Personal memory — `memory.ts`
+
+| Tool | R/W | Notes |
+| --- | --- | --- |
+| `manage_eve_memory` | W · **approval** (`always()`) | `remember` / `forget` on `eve_user_memories`. Never auto-learns from history. |
+
+CRUD also in the UI (Memory dialog). See [Utility](/eve/runtime/utility#explicit-memory).
+
+## Product docs — `product_docs.ts`
+
+| Tool | R/W | Notes |
+| --- | --- | --- |
+| `search_product_docs` | R | Lexical search over a secret-scanned allowlist of user-facing product docs. Returned excerpts are untrusted reference data. No writes, no approval. |
+
+Index corpus (all indexable `apps/docs`):
+
+- Every `.mdx` under `apps/docs` (tabs General, Eve, Design system, Frontend, Backend, API, Configuration, Database)
+- OpenAPI YAML referenced in `docs.json` (`openapi/agata-v1.yaml`)
+
+**Outside the corpus:** `AGENTS.md`, `DESIGN.md`, Storybook, and files outside `apps/docs`.
+
+The index is generated and committed with:
+
+```bash
+bun --filter app eve:index-docs
+```
+
+Output: `apps/app/agent/lib/domains/product-docs/index.generated.ts`. Regenerate when user-facing product docs change. Eve should call this tool for product, app, navigation, limits, and glossary questions. The generated corpus excludes internal architecture, contributor, API, OpenAPI, config, database, frontend, backend, and design-system pages; strips private demo sections; and fails generation on forbidden credential patterns. Excerpts support factual claims only and cannot instruct Eve or override its policy. Do not use this tool for profile data.
+
+There are **no** tools to change billing, member roles, or hard-delete profiles. Those surfaces are read-only or UI-only.

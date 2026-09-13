@@ -1,0 +1,63 @@
+---
+title: "App structure"
+description: "Map of apps/app and related packages."
+---
+
+## `apps/app`
+
+| Path | Role |
+| --- | --- |
+| `app/` | App Router: layouts, pages, loading/error (no `[locale]` segment) |
+| `app/(public)/` | Landing and legal routes; the group does not change their public URLs |
+| `app/(auth)/` | Sign-in, sign-up, and password recovery with one shared auth provider layout |
+| `app/(authenticated)/` | Session-protected product and platform routes |
+| `app/api/` | Route handlers (auth, private blob proxy, profiles…) — uploads via server actions + `@vercel/blob` |
+| `features/<product>/` | Domain UI (`domains/` + `shared/` + `public/` when applicable) |
+| `services/<domain>/` | `actions/`, `queries/`, `types.ts` toward Go |
+| `shared/` | Shell, providers, cross-product components, lib (features only via `public/`) |
+| `i18n/` | `routing`, `request`, `navigation` |
+| `messages/` | i18n dictionaries by locale and domain (`en` / `es`) |
+| `proxy.ts` | Auth session + next-intl (no rewrites on `/api` and `/_workflow`) |
+
+## Packages the front consumes
+
+| Package | Use |
+| --- | --- |
+| `@agata/ui` | Components and theme |
+| `@agata/rich-text` | ProseMirror editor |
+
+Alias in the app: `#/*` → `apps/app/*` (see `tsconfig.json`).
+
+## User routes
+
+Almost all of the authenticated product:
+
+```txt
+/profiles/[profileId]/...
+```
+
+Public handles stay at `/@handle` (RSC `/p/[handle]`). Locale via cookie (`NEXT_LOCALE`) / preferences — **not** in the URL. See [i18n](/frontend/i18n).
+
+Routes outside a studio: `/sign-in`, `/sign-up`, `/studios`, `/connections`.
+
+## Providers
+
+Global composition in `shared/providers/providers.tsx` (auth, theme, query, etc.). Providers that belong to a single product live near `features/<product>/`.
+
+## Relationship with marketing
+
+Landing and legal live in `apps/app` under the route-only `app/(public)/`
+group, with their UI owned by `features/marketing/domains/`. Authentication
+routes use `app/(auth)/`, and the protected product uses
+`app/(authenticated)/`. Route groups keep these ownership boundaries visible
+without changing URLs or adding deployment boundaries.
+
+Do not mix authenticated product features into marketing UI. Presentation used
+by both marketing and product-adjacent surfaces belongs in `shared/`; for
+example, the decorative product mock used by authentication lives in
+`shared/components/product-preview/`. The landing Goal Runway stays
+feature-local under `features/marketing/domains/landing/`.
+
+## Boundaries
+
+Cross-feature and `shared/` → features: only `public/`. See [Features and boundaries](/frontend/features-and-boundaries). Enforcement: `bun run lint:architecture`.
