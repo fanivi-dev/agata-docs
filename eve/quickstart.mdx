@@ -1,0 +1,72 @@
+---
+title: "Quickstart"
+description: "Run Eve locally, check which tools are discovered, and try the section gate."
+---
+
+Eve runs inside the Next app process (`withEve` in `apps/app/next.config.ts`), but it has its own dev server for iterating on the agent.
+
+<Steps>
+  <Step title="Start the Go API">
+    Eve does not talk to Postgres: each tool calls the Go API with the user's session token.
+
+    ```bash
+    bun run api:dev
+    ```
+
+    Without this, tools return network errors and the chat still replies, but it cannot read or write anything.
+  </Step>
+
+  <Step title="Start the app">
+    ```bash
+    bun run dev
+    ```
+
+    The Eve channel is mounted at `/eve/v1/*` on the same origin.
+  </Step>
+
+  <Step title="Check which tools are discovered">
+    ```bash
+    bun --filter app dev:eve
+    ```
+
+    `eve info` prints the discovered surface. It is the fastest way to confirm that a new file in `agent/tools/` was registered and under which name.
+  </Step>
+
+  <Step title="Verify that tools survive a replay">
+    ```bash
+    bun --filter app check:eve-tools
+    ```
+
+    Required before considering any new tool done. Explained in [Add a tool](/eve/extend/add-a-tool).
+  </Step>
+</Steps>
+
+## Try the section gate
+
+The number of tools Eve sees depends on the member. To see it:
+
+1. Open the profile with two members.
+2. Remove the `finance` section from one of them in profile settings.
+3. With that user, ask in chat about their accounts.
+
+Eve must reply that **the section is not enabled for that member**, not that Agata has no finance. If it says the latter, the problem is in `agent/instructions/20-sections.ts`, not in the gate.
+
+## Verify an approval
+
+Tools that move money or delete data stop and wait for a person.
+
+1. With a user who has `finance`, ask to log an expense.
+2. The tool card should stay on **Waiting for approval**, with Approve / Deny buttons.
+3. Denying leaves the transaction uncreated.
+
+Also check that **a second credit is not charged** when responding: `GET /api/profiles/:id/agent-credits` before and after. Resuming an approval continues the already-paid turn.
+
+## Environment variables
+
+| Variable | Use |
+| --- | --- |
+| `GO_API_URL` | Go API base. Defaults to `http://localhost:8080`. |
+| `BETTER_AUTH_URL` | Origin used to resolve the Better Auth session. Falls back to the request origin. |
+| `EVE_EVAL_FIXTURE` | **Local evals only.** See [Evals](/eve/extend/evals). Never in a deployed environment. |
+
+See [Configuration → App](/config/app) for the rest.

@@ -1,0 +1,65 @@
+---
+title: "Eve"
+description: "The Agata AI agent: what it is, what it can do, and how it is built."
+---
+
+**Eve** is the AI agent for the Agata profile. It lives inside the product, always scoped to a profile, and acts on the user's real data through typed **tools**.
+
+It is not a generic chat: everything Eve can do is a tool written in `apps/app/agent/tools/`, backed by a Go API endpoint. If there is no tool, Eve cannot do it — and must say so.
+
+<CardGroup cols={2}>
+  <Card title="Get started" icon="play" href="/eve/quickstart">
+    Run Eve locally and try a conversation.
+  </Card>
+  <Card title="Tools" icon="wrench" href="/eve/tools/overview">
+    The canonical 173-tool catalog and progressive capability groups.
+  </Card>
+  <Card title="Utility" icon="shield-check" href="/eve/runtime/utility">
+    Privacy, receipts, memory, and screen context.
+  </Card>
+  <Card title="Add a tool" icon="code" href="/eve/extend/add-a-tool">
+    The pattern, and the bundler rules you cannot skip.
+  </Card>
+</CardGroup>
+
+## Product entry
+
+- **Sidebar** of the shell: **Agent** item (always-on).
+- **Header** of the profile chrome: **Agent** button, opens a side panel with a simple chat.
+- **Dedicated page** `/profiles/:id/agent` (and `/agent/:chatId`): conversation rail (back to the shell, **New chat**, **History**, recent chats). **History** opens a search + preview overlay.
+- **Memory** is personal and opt-in (Memory dialog in the Agent rail).
+- Empty state: prompts derived from the screen / sections, with a global fallback.
+
+**New chats are private** to the author. The author can share them with the profile as **read-only**. Details in [Utility](/eve/runtime/utility).
+
+## What it can do
+
+Eve covers the profile command layer across all product sections. The catalog contains 173 tools; what a user can access depends on the **sections** granted in that profile, and progressive routing keeps only the relevant groups visible to the model:
+
+| Section | Domains | Tools |
+| --- | --- | ---: |
+| `agent` (always granted) | platform, profile/capability search, product docs, feedback, memory | 15 |
+| `work` | tasks, projects, tags, calendar, pomodoro, dispatch and bounded bulk | 50 |
+| `daily` | notebook, activities, Week plan, dispatch and bounded bulk | 21 |
+| `goals` | goals, milestones, links, dispatch and bounded bulk | 10 |
+| `finance` | accounts, transactions, savings, budgets, planner, dispatch and bounded bulk | 24 |
+| `health` | check-ins, routines, sessions, metrics, dispatch and bounded bulk | 15 |
+| `nutrition` | journal, recipes, plans, pantry, shopping, dispatch and bounded bulk | 24 |
+| `library` | items, collections, subitems, dispatch and bounded bulk | 14 |
+
+In legacy routing an owner can expose all 173 names. Progressive routing instead exposes at most 10 core anchors initially, adds the current screen group when relevant, and caps later model steps at 36 product tools. Authorization remains identical in both modes. See [Tools](/eve/tools/overview) and [Auth and sections](/eve/runtime/auth-and-sections).
+
+## What it cannot do
+
+- Hard-delete of root entities (soft-delete / archive / restore and child deletes with approval are allowed).
+- Edit the rich-text body of notes or tasks (metadata and reads are allowed).
+- Change billing or member roles (read-only).
+- Upload or generate images.
+- Slack, Notion, Linear, MCP, or other external connections.
+- The sandbox/shell tools of the Eve harness (`bash`, `read_file`, …) are **disabled**.
+
+Use `open_profile_view` to return a review deep link in the UI. See the [roadmap](/eve/roadmap) for what is still out of scope.
+
+## Cost
+
+Each accepted turn consumes **1 credit** from the profile, regardless of the model, the user, and the number of tools Eve calls. See [Credits](/eve/runtime/credits).

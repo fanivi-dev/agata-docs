@@ -1,0 +1,46 @@
+---
+title: "Roadmap"
+description: "What is still missing in Eve and why it is out of scope today."
+---
+
+## Domain coverage
+
+Tools deliberately left out, with the reason:
+
+| What | Why it is out |
+| --- | --- |
+| Hard delete of tasks (`POST .../bulk-delete`) | Irreversible, with no restore path. |
+| Edit rich-text documents (notes and tasks) | Requires a ProseMirror `contentJson` tree and an optimistic `version`. It is not safe for a model to draft. Bodies are read-only. |
+| `DELETE /tags/.../{tagId}` | Cascades link deletion across all domains. |
+
+Recipes, meal plans, the finance planner, health metrics, and library collections **already have tools** (narrow and/or `manage_*`). See [Tools](/eve/tools/overview) and the [changelog](/eve/changelog).
+
+## Candidates, if budget allows
+
+Ordered by expected utility:
+
+1. **More homogeneous trash and restore** per domain — today tasks and library have soft-delete/restore; meal logs are soft-deleted without a dedicated restore.
+2. **Hard-delete of roots** with a stronger confirmation flow (accounts, projects, goals) — deliberately out of scope today.
+
+The catalog contains **173** tools, but progressive routing bounds model exposure by capability group. Expanding still requires measuring selection degradation (`evals/`) rather than relying on the catalog count alone.
+
+The 2026-08-31 evidence gate scored bounded document input and semantic rich-text mutation and selected neither. The metadata-only quality ledger cannot provide three observed unmet-job examples for either candidate. Reopen the scorecard only with consented, anonymized demand evidence and a separate implementation approval.
+
+## Runtime
+
+| Topic | Status |
+| --- | --- |
+| **Tools and approvals across isolates** | Resolved. Toolsets run on `step.started`, so handler, permissions, and the approval callback materialize together on each step. |
+| **Creation idempotency** | Resolved. `writeOnce` reduces duplicate work inside Eve; every Go mutation also carries a stable operation key. The API stores `pending` before dispatch and replays a completed response. If completion is indeterminate, it returns `409` instead of executing the write again. |
+| **Text/voice approval parity** | Resolved. Catalog risk is checked against both surfaces; mixed dispatchers use input-aware predicates, and voice consumes a short-lived server challenge rather than trusting the client. |
+| **Conservative model routing** | Implemented behind `control`/`shadow`/`routed`. EN/ES pre-step classification, monotonic fallback chains, per-turn permission briefing, terminal cleanup, and bounded state have deterministic fixtures; provider-backed promotion remains gated. |
+| External connections (Slack, Notion, Linear, MCP) | Out of scope. |
+| Eve skills | Six permission-aware operating skills cover planning, goal breakdown, capture/organize, finance review, and meal planning. |
+| Eve subagents | Unused; core command reliability comes first. |
+| Eve schedules (harness) | Unused. |
+
+## Product
+
+- Localization of tool outputs: today they return structured data in English and the model adapts the language. It works; if it stops, the right place is the shaper, not the description.
+- Tool renderers: there is a registry with receipts + a compact fallback and an `open_profile_view` renderer; tool-specific cards and interactive result UI are the next separately planned evolution.
+- Utility telemetry: the local Postgres report includes routing, latency, duplicate, receipt, and per-tool/group aggregates; there is no external product analytics.

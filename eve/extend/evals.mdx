@@ -1,0 +1,108 @@
+---
+title: "Evals"
+description: "What is verified about Eve, and how to run it locally and in CI."
+---
+
+Evals live in `apps/app/evals/`, sibling of `agent/`. Eve discovers them in `*.eval.ts` files.
+
+They assert **tool selection, gating, receipts, and orchestration**, not prose alone. The canonical catalog has 173 names, while progressive routing bounds what any model step receives.
+
+## The blocker: the eval principal
+
+`eve eval` drives the agent over HTTP **without a browser cookie**. With the normal auth chain, `localDev` wins, which produces a principal with no profile, no session token, and no sections: every gate returns `null` and the agent reaches the model **with no domain tools**. Every eval would fail trivially.
+
+`agent/channels/eve.ts` fills those attributes from the environment when `EVE_EVAL_FIXTURE=1`:
+
+```bash
+bun run api:dev   # write evals need the real API
+
+EVE_EVAL_FIXTURE=1 \
+EVE_EVAL_PROFILE=enabled \
+EVE_EVAL_RUN_ID=<unique-safe-id> \
+EVE_EVAL_PROFILE_ID=<uuid> \
+EVE_EVAL_SESSION_TOKEN=<Better Auth session token> \
+EVE_EVAL_SECTIONS=work,daily,finance \
+bun --filter app eval:eve:enabled
+```
+
+<Warning>
+`EVE_EVAL_FIXTURE` **must never** be set in a deployed environment. The channel refuses to initialize the fixture unless the process is running under `eve dev` or `vercel dev`; this is a defense-in-depth guard around Eve's local-only authenticator.
+</Warning>
+
+Varying `EVE_EVAL_SECTIONS` is also how the gate itself is evaluated.
+
+Provider suites use two incompatible profiles and never run together:
+
+- `denied`: `EVE_EVAL_SECTIONS=daily`, then `bun --filter app eval:eve:denied`. It runs only `profile-denied` cases.
+- `enabled`: sections include `work,daily,finance,library,goals,health,nutrition`, then `bun --filter app eval:eve:enabled`. It excludes denied-profile cases.
+
+Both commands run a preflight before Eve constructs a judge or subject model. The preflight requires the local fixture guard, profile, session token, unique run id, and compatible section set. Durable create evals prefix their fixture labels with `[eval:<run id>]`, making postcondition inspection and teardown attributable to one run.
+
+## The evals
+
+### Tools (selection and gate)
+
+| Eval | What it protects |
+| --- | --- |
+| `tools/tool-name-registry` | That two toolsets do not declare the same name and every canonical tool has one deterministic presentation policy — drift that would otherwise surface on the user's first message. Also the per-domain tool cap. Deterministic: does not send turns. |
+| `tools/capability-routing` | Screen-to-group mapping and core/context/later-step exposure budgets. Deterministic: does not send turns. |
+| `tools/routing` | That agenda, focus, and task listing remain distinguishable. They are the three that overlap the most. |
+| `tools/section-gate` | That a member without `finance` does not receive finance tools **and** that the reply says "not enabled for you", not "Agata does not have that". |
+| `tools/finance-approval` | That a finance write is parked instead of executed, and that denying it writes nothing. |
+| `tools/no-tool-for-chat` | That a greeting does not trigger a profile read. The other failure mode of a large surface. |
+
+### Utility (cycle close)
+
+| Eval | What it protects |
+| --- | --- |
+| `utility/no-false-success` | After a failed `update_task`, the prose does not claim success. |
+| `utility/no-invent-empty-lists` | Empty lists are reported empty; items are not invented. |
+| `utility/one-write` | A single `create_task` per request for one task. |
+| `utility/verifiable-summary` | The create returns a structured receipt and the assistant does not need duplicate success prose; any prose that remains must not contradict the result. |
+| `utility/entity-context` | With `clientContext.screen`, "this task" calls `get_task` with that id. |
+| `utility/memory-approval` | `manage_eve_memory` parks; denying does not write. |
+| `utility/restore-routing` | Restoring from trash uses `restore_task`, not `create_task`. |
+| `utility/week-plan` | Week plan create/Later/carry-over/restore routing and receipt behavior. |
+| `utility/workspace-search` | Cross-domain find uses one bounded authorized search before an exact domain read. |
+| `utility/multi-domain-orchestration` | Goal/day/meal/finance/capture/denied-section stories preserve dependency order, approvals, and truthful partial completion. |
+| `utility/library-list` | Routine Library list is one read and no write. |
+| `utility/ambiguous-request` | Underspecified capture does not invent a write. |
+| `utility/invalid-args-recovery` | Invalid task ids are not retried as a write loop. |
+| `tools/destructive-approval` | Library delete language still parks on soft delete. |
+
+## Local metrics
+
+No external telemetry. Aggregates `eve_chat_events` in Postgres:
+
+```bash
+bun --filter app eve:metrics
+bun --filter app eve:metrics -- --workspace <uuid> --since 7d --json
+```
+
+Includes per-tool/group outcomes, calls and steps per terminal turn, first-tool latency, capability activation, duplicates, receipt coverage, action success/error, re-prompts, close time, deduplicated denied approvals, and restores. Raw reasoning is not persisted or measured. See [Utility](/eve/runtime/utility#local-metrics).
+
+Run the same provider-backed matrix once with `EVE_TOOL_ROUTING_MODE=legacy` and once with `progressive`. Progressive must not become the default until the approved comparison satisfies the rollout predicates; static budget checks alone are not runtime selection evidence.
+
+<Warning>
+Model evals call the configured providers. Warn before running them in environments with real billing; local metrics do not call the model.
+</Warning>
+
+## Gate and soft
+
+Tool assertions are **gates**: they fail the eval and make `eve eval` exit non-zero.
+
+LLM-judge ones are **soft** with a threshold: they are recorded and stay visible, but they do not break CI over a wording variation. In `section-gate`, what gates is `notCalledTool`; the judge only watches that the message does not lie about the product.
+
+`evals/evidence-matrix.ts` maps every capability group to positive and negative anchors and adds dedicated resume, cancel, approval, voice, routing, replay, truncation, partial-failure, and authorization lanes. `bun --filter app check:eve-eval-readiness` verifies profile separation, complete matrix coverage, run namespaces for durable fixtures, and the control/routed comparison manifest without calling a provider.
+
+The control/routed manifest remains `authorization-required` with no maximum spend. Provider comparison has not run. `control` stays the default; promotion requires an approved maximum spend, no sensitive regression, at most one percentage point task-success loss, reconciled route metrics, and a cost or latency improvement. Planned rollout is 10% → 50% → 100%, with immediate rollback on a sensitive regression.
+
+## CI
+
+```bash
+bun --filter app eval:eve:ci   # --strict --junit .eve/junit.xml
+```
+
+Upload it together with `.eve/evals/` when it fails.
+
+Always add an eval when adding a domain: at minimum, an assertion that its anchor tool is chosen for the obvious question.
