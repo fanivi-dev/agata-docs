@@ -1,0 +1,112 @@
+---
+title: "Guide: edit rich text (task / note)"
+description: "Why the document lives on dedicated endpoints and how to version it."
+---
+
+Tasks and notebook store the ProseMirror document body in **document** tables, not in the cached list/detail metadata. The editor runtime lives in `@agata/rich-text`; the HTTP contract is engine-neutral.
+
+## Why separate endpoints
+
+| Surface | Metadata (list/detail) | Body |
+| --- | --- | --- |
+| Task | cacheable | `GET/PUT …/document` **uncached** |
+| Note | cacheable | `GET/PUT …/notes/:id/document` **uncached** |
+
+This way the editor always sees fresh content and does not remount because of detail invalidations.
+
+## Editor flow
+
+```txt
+1. Open entity (task/note) → metadata
+2. loadDocument() → GET document
+3. User edits the document
+4. saveDocument() → PUT document with contentJson, schemaVersion, expectedVersion
+5. On 409 CONFLICT → stop, show the conflict surface, do not overwrite
+```
+
+The server validates `contentJson` against schema version 1, increments `version` atomically when `expectedVersion` matches, and derives search text, excerpt, and counts. Clients must not send `searchText` or `searchHtml`.
+
+## Task document
+
+```bash
+# GET
+curl -sS "$BASE/tasks/profiles/$WS/$TASK_ID/document" \
+  -H "Authorization: Bearer $SESSION"
+
+# PUT
+curl -sS -X PUT "$BASE/tasks/profiles/$WS/$TASK_ID/document" \
+  -H "Authorization: Bearer $SESSION" \
+  -H "Content-Type: application/json" \
+  -d '{"contentJson":{"type":"doc","content":[]},"schemaVersion":1,"expectedVersion":2}'
+```
+
+A stale `expectedVersion` returns HTTP 409 with code `CONFLICT`. A successful save returns `schemaVersion` and the incremented `version`.
+
+## Note document
+
+```bash
+curl -sS "$BASE/notebook/profiles/$WS/notes/$NOTE_ID/document" \
+  -H "Authorization: Bearer $SESSION"
+```
+
+```bash
+curl -sS -X PUT "$BASE/notebook/profiles/$WS/notes/$NOTE_ID/document" \
+  -H "Authorization: Bearer $SESSION" \
+  -H "Content-Type: application/json" \
+  -d '{"contentJson":{"type":"doc","content":[]},"schemaVersion":1,"expectedVersion":1}'
+```
+
+Create of a missing document starts at `version` 1. Updates require `expectedVersion` and increment exactly once.
+
+## Monorepo code
+
+- `apps/app/services/tasks/actions/get-task-document.ts`
+- `apps/app/services/tasks/actions/update-task-document.ts`
+- `apps/app/services/tasks/queries/get-task-document.ts`
+- `apps/app/services/notebook/actions/get-note-document.ts`
+- `apps/app/services/notebook/actions/update-note-document.ts`
+- `apps/app/services/notebook/queries/fetch-note-document.ts`
+
+## Anti-abuse limits
+
+| Limit | Task | Note |
+| --- | --- | --- |
+| Characters (plain text) | 50,000 | 100,000 |
+| JSON payload (`contentJson`) | 400 KB | 800 KB |
+| Images per entity (`task_images` / `note_images`) | 20 | 20 |
+| Size per image (purpose `image` / `attachment`) | 5 MB | 5 MB |
+
+Enforcement:
+
+- **API:** `UpdateDocument` / `UpdateNoteDocument` validate schema, chars, and JSON size; `AttachBlob` counts active rows and validates editor image size/type.
+- **Client:** character-count limit in `@agata/rich-text`; the editor and the task gallery block uploads at the cap.
+
+Constants: `apps/api/internal/shared/limits/rich_text.go` and `#/shared/constants/rich-text-limits`.
+
+## Code blocks
+
+`@agata/rich-text` highlights a subset of languages (js/ts/tsx, json, css, html, bash, markdown, python, sql, go). The node's `language` attribute still works when pasting or typing a fenced block with a language; highlighting is presentation-only in the editor.
+
+## Images
+
+Flow: private upload (Vercel Blob) → `POST /api/blob/.../attachments` → image node with:
+
+- `src`: dynamic relative URL `/api/blob?pathname=…` (`Cache-Control: private, max-age=60`; `Vary: Cookie`; no cache-busting)
+- `imageId`: **UUID** of the row (`task_images` / `note_images`) returned as `attachmentId` — not the blob pathname
+
+After attach (task/note):
+
+- Yes: `updateTag` of the entity detail (`invalidateCache.taskDetail` / notebook equivalent) with `refresh: false` for the next navigation
+- No: `refresh()` — remounts the RSC and the editor flickers
+- Gallery: local `setImages` (also when the image is inserted from the editor)
+
+## Anti-patterns
+
+- Seed the editor from cached `getTaskDetail`
+- `updateTag` of detail on every save keystroke
+- `refresh()` in document autosave (remounts the RSC and the editor flickers)
+- `refresh()` when attaching or deleting a task/note image (use `updateTag` + local state)
+- Store `imageId` = blob pathname (DELETE expects a UUID)
+- Omit `expectedVersion` on concurrent writes
+- Send client-derived `searchText` or `searchHtml`
+- Pass raw editor JSON to a Server Action — ProseMirror `attrs` are null-prototype and are lost on serialize (images become `{ "type": "image" }` with no `src`). Use `JSON.parse(JSON.stringify(content))` (or the session-hook helper) before the action.

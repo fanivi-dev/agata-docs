@@ -1,0 +1,89 @@
+---
+title: "Finance"
+description: "Studio money system: one ledger, currency-safe totals, and linked debt and savings projections."
+---
+
+**Finance** is the studio money app. It is one ledger with dependent projections, not eight independent screens.
+
+Canonical tab order:
+
+**Transactions → Accounts → Recurring → Budgets → Savings → Debts → Planner → Insights**
+
+## Relationship contract
+
+1. **Transactions are the ledger.** Paid movements alone change account balances. Pending movements affect committed cash-flow and budgets where this page says so, but not the live balance.
+2. **Debt payments and savings contributions are projections of linked ledger rows.** Creating, editing, paying or unpaying, relinking, or deleting the ledger row synchronizes the projection in the same database transaction.
+3. **Recurring rules are instructions, not balances.** Materialization is idempotent. A materialized row then follows the normal transaction lifecycle.
+4. **Budgets read expense ledger data by month, tag, status, and currency.** A budget cannot mix currencies.
+5. **Planner is a currency-scoped projection.** It combines a currency-scoped opening balance, actual cash flow, unmaterialized recurring rules, debt minimums, savings requirements, and scenario items. It does not create ledger rows.
+6. **Insights is a read model, never an independent source of truth.** Every card links to the exact filtered source set that explains its value.
+7. **Archived accounts remain historical.** They leave active totals and new pickers but remain visible in linked history and analytics for their period.
+8. **No implicit conversion.** Currency scopes stay separate unless a future exchange-rate feature explicitly introduces conversion.
+
+## Currency
+
+- Account and debt currency codes are uppercase three-letter codes on new writes. Legacy blank values are an explicit **unknown** currency group until edited.
+- Budgets, savings goals, and planner scenarios carry their own currency. New writes require it.
+- A linked savings or debt default account must use the same currency as the entity. Transfers require both accounts to have the same non-blank currency.
+- Aggregates never sum unlike currencies. Multi-currency responses return separate rows.
+- Shared URL parameter: `currency=XXX`. The default is the primary active account currency. An explicit unknown-currency scope remains available for legacy records.
+- Period-aware destinations also preserve `year` and `month`.
+
+## What it includes
+
+| Area | What it is for |
+| --- | --- |
+| **Transactions** | Landing ledger: expenses, income, and transfers. An optional **place** (name) can be attached on create or edit. Linking a paid expense to an active debt records the payment and lowers the debt. Linking paid income to a savings goal records the contribution and raises the goal. Both links are atomic with the ledger row. Status, type, account, tag, origin, search, sort, month, and currency are URL-addressable and applied before pagination. |
+| **Accounts** | Balances and account types, grouped by currency. Archived accounts leave active net worth and pickers. The primary account supplies the default currency scope. |
+| **Tags** | Classify expenses and income (`domain_scope=finance`). Transfers cannot have a tag. |
+| **Budgets** | Monthly caps with their own name and currency; optionally tied to a tag. Month spend (`spent` / committed) includes **paid and pending** expenses in the period and currency; the UI separates settled vs pending and only marks “Limit reached” / exceeded with **paid** spend. The close projection does not extrapolate fixed recurring commitments (e.g. rent). Detail **Where it goes** groups this month’s expenses by name/note — there is no separate merchant table. List filter tabs are URL-addressable (`?filter=attention\|onTrack\|noSpend`). **Also email me** sends an email (from Finance, color `#5351c0`) when the threshold is crossed and another if the month cap is later exceeded. |
+| **Recurring** | Monthly rules for income, expense, or transfer. A rule may carry an optional place (for example a gym); materialization copies that place onto the new ledger row. Every active rule appears in Calendar automatically on its day of month; email remains optional for expenses. Materialized rows stay pending until marked paid (transfers too). Income rules may link a savings goal; expense rules may link a debt; transfers accept neither. |
+| **Savings** | Goals with a monthly pace, contributions, and history. Each contribution is a projection of a paid income row. Goal currency must match the default destination account. |
+| **Debts** | Balances, payments, and debt groups. Each payment is a projection of a paid expense. A debt is **settled** when it reaches zero (or when marked by hand) and leaves the active list. |
+| **Planner** | Currency-scoped future balance (`?from=YYYY-MM` + horizon + `currency`). The current month mixes real income/expense transactions (paid + pending; no transfers) with recurring rules not yet materialized; future months only use recurring ± scenario line items. In accounts mode, the window opening balance in the current month is the live **same-currency** balance minus paid MTD net (true month start). Risk inputs include recurring income, debt minimums, and savings coverage for that currency. **Savings covered** is the share of in-progress same-currency goals whose remaining target is fully funded by projected surplus over the remaining months to each goal’s target date (or the planner horizon if the goal has no date). Scenarios persist currency and opening-balance mode: accounts / custom / zero. Duplicating a scenario copies its items in one request. |
+| **Insights** | Read model for a user-local period and currency (`?year=&month=&currency=`). It composes period-summary, monthly-trend, period-breakdown, budgets, accounts, savings, debts, and recurring. Every KPI and row drills down to the filtered source tab. Different currencies are never summed. |
+
+## Linked movements
+
+- **Debt:** create or mark paid an expense with `debtId` → create/update the payment and lower the balance in the same database transaction. Pending or delete reverses both. Relink moves the payment to the new debt.
+- **Savings:** create or mark paid an income with `savingsGoalId` → create/update the contribution and raise the goal in the same database transaction. Pending, relink, or delete reverses or moves the contribution. The app does not create a contribution in a second request after the transaction.
+- Expense/transfer inputs reject `savingsGoalId`. Income/transfer inputs reject `debtId`.
+- Recurring materialization copies the rule’s debt or savings link onto the new row, then the same synchronizers run.
+
+## Routes
+
+| Route | Use |
+| --- | --- |
+| `/finance` | Transactions (canonical landing). `/finance/transactions` redirects here and keeps the query string. |
+| `/finance/accounts` | Accounts |
+| `/finance/accounts/:accountId` | Account detail (balance history, linked movements) |
+| `/finance/recurring` | Recurring |
+| `/finance/recurring/:ruleId` | Recurring rule detail (metadata + generated occurrences) |
+| `/finance/budgets` | Budgets (month view, grouped by urgency) |
+| `/finance/budgets/:budgetId` | Budget detail (pace, history, associated expenses) |
+| `/finance/savings` | Savings (studio summary + in-progress and completed goals) |
+| `/finance/savings/:goalId` | Goal detail (trajectory, milestones, contribution history) |
+| `/finance/debts` | Debts |
+| `/finance/debts/:debtId` | Debt detail (payoff, payment history) |
+| `/finance/planner` | Planner |
+| `/finance/insights` | Insights |
+
+Shared list query keys when the destination understands them: `currency`, `year`, `month`, `status`, `type`, `account`, `tag`, `origin`, `q`, `sort`.
+
+## Usage ideas
+
+- From **Add transaction**, link an expense to a debt or income to a savings goal; you do not need those tabs for daily logging.
+- Think in **cents**: the UI formats; the system stores integer precision.
+- Use **recurring + ensure month** so you do not forget fixed expenses, income, or transfers.
+- Export CSV from the transaction, account, budget, recurring, debt, and savings bars. The export uses the same filters as the list.
+- In team, confirm the app is **enabled**.
+
+## Limits
+
+Accounts and transactions can hit plan caps. See [Billing](/platform/billing-plans).
+
+## Related
+
+- Savings ↔ [Goals](/apps/goals) (product bridge)
+- Visual theme: `finance` in [App themes](/design-system/app-themes)
+- Command palette pages follow the same eight-tab order
