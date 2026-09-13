@@ -1,0 +1,66 @@
+---
+title: "Product model"
+description: "How Agata is composed: studios, members, apps, and data."
+---
+
+Agata is not a single screen: it is a **studio** with several
+apps that share identity, membership, and shell. Selected rows can be
+followed without becoming a member.
+
+## Layers
+
+```mermaid
+flowchart TD
+  U[User] --> P[Studio]
+  U --> O[Organization]
+  O --> P
+  O --> Team
+  Team --> P
+  P --> T[Members]
+  P --> F[Followers]
+  P --> D[Daily]
+  P --> W[Work]
+  P --> A[Domain apps]
+```
+
+| Layer | What it decides |
+| --- | --- |
+| **User** | Login, preferences, locale. May belong to Organizations. |
+| **Organization** | Owns people, Teams, and zero or more Studios. Not public, not followable. |
+| **Team** | Org-scoped membership shortcut. Never an owner. No followers. |
+| **Studio** | Public actor (`handle`). Person-owned or Organization-owned. Table `profiles`. API `profileId`. |
+| **Members** | Invited collaborators, seats, section access. Billing stays on the studio row. |
+| **Follow** | Audience for shareable rows (`members` \| `followers` \| `public`) |
+| **App** | Which domain screens and data you use |
+
+## Studio apps
+
+| App id (product) | Always-on | Notes |
+| --- | --- | --- |
+| `tasks-app` | **Yes** | Cannot be disabled |
+| `notebook-app` | | Daily |
+| `week-plan-app` | | Daily — Mon–Sun plan; optional reminder in Calendar; not the Nutrition planner |
+| `goals-app` | | |
+| `finance-app` | | Frequent opt-in |
+| `library-app` | | On by default |
+| `nutrition-app` / `health-app` | | Frequent opt-in |
+| `pomodoro-app` | | |
+
+## Personal vs members
+
+| | Personal | With members |
+| --- | --- | --- |
+| Membership | One owner | Roles + invitations |
+| Collaboration | — | Notes, tasks, projects, tags, library |
+| “Life” apps | Available according to plan | Finance/health/nutrition often off until an admin enables them |
+
+## Limits
+
+Plans impose caps (members, tasks, projects, tags, reminders, finance, goals…). See [Billing](/platform/billing-plans).
+
+## What the model is not
+
+- There is no useful “account without a studio” for the product: you always operate in a studio.  
+- Apps are not separate SaaS products: they share auth and `profileId`.
+- Follow is not membership. Public pages are not the studio shell.
+- An Organization is not a Studio. A Team is not a Studio and is not on Explore.

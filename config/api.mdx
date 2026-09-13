@@ -1,0 +1,125 @@
+---
+title: "agata-api"
+description: "Preview and Production environment variables for the Vercel agata-api project (Go)."
+---
+
+Vercel project for the backend (Root Directory `apps/api`, container runtime / `Dockerfile.vercel`). Config: `apps/api/vercel.json`. Crons at `/api/internal/...`. The frontend calls via `GO_API_URL`.
+
+Legend: **yes** = configured in that environment on Vercel. **no** = not defined there.
+
+Load and validation: `apps/api/internal/platform/config/config.go`. In production (`ENV=production`) it requires `DATABASE_URL` and `CRON_SECRET`.
+
+<Warning>
+Names and purpose only. Do not document or commit values.
+</Warning>
+
+## Preview / Production matrix
+
+| Variable | Preview | Production | Description |
+| --- | --- | --- | --- |
+| `DATABASE_URL` | yes | yes | Postgres runtime (PgBouncer / port 6432) |
+| `MIGRATE_DATABASE_URL` | yes | yes | Direct DSN for DDL / `migrate up` (port 5432) |
+| `DB_MAX_OPEN_CONNS` | no | no | Optional; maximum per instance. Default `10` |
+| `DB_MAX_IDLE_CONNS` | no | no | Optional; idle connections per instance. Default `2` |
+| `DB_CONN_MAX_LIFETIME_MIN` | no | no | Optional; maximum connection lifetime. Default `30` |
+| `ENV` | optional | yes | `production` in prod (strict Validate); default `development` |
+| `APP_ORIGIN` | optional | recommended | Next app origin (deep links in emails) |
+| `CRON_SECRET` | optional | yes | Auth for `/api/internal/*` (crons, bootstrap, Stripe) **and** product GET reads from the BFF for shared Data Cache. Required in prod; same value on **agata-app** |
+| `RESEND_API_KEY` | yes | yes | Transactional emails (reminders, budgets, invitations). Empty disables sending and logs it |
+| `EMAIL_FROM` | optional | optional | Default sender. Default `Agata <reminders@updates.agata.in>`. Product from-names (Tasks, Finance, …) reuse the mailbox from this value |
+| `UPSTASH_REDIS_REST_URL` | yes | yes | Redis REST (session, rate limits fixed in code) |
+| `UPSTASH_REDIS_REST_TOKEN` | yes | yes | Upstash token |
+| `QSTASH_TOKEN` | yes | yes | Server-side token to publish and cancel QStash messages |
+| `QSTASH_CURRENT_SIGNING_KEY` | yes | yes | Current key to verify QStash callbacks |
+| `QSTASH_NEXT_SIGNING_KEY` | yes | yes | Next key for rotation without downtime |
+| `QSTASH_CALLBACK_ORIGIN` | yes | yes | Public origin of this API, no path or trailing slash |
+| `QSTASH_URL` | no | no | Optional; default `https://qstash.upstash.io` |
+| `STRIPE_*` | as needed | as needed | Billing if the API syncs |
+| `AGENT_CREDITS_ENFORCED` | yes | yes | Strict gate enabled after backfill and balance comparison |
+| `METRONOME_API_URL` | yes | yes | Metronome base URL |
+| `METRONOME_API_TOKEN` | yes | yes | Server-side Metronome Bearer |
+| `METRONOME_WEBHOOK_SECRET` | yes | yes | Webhook HMAC signature |
+| `METRONOME_RATE_CARD_ID` | yes | yes | Rate card with `agata_agent_message` |
+| `METRONOME_PRODUCT_ID` | yes | yes | Agent usage product |
+| `METRONOME_CREDIT_PRODUCT_ID` | yes | yes | Fixed product that originates credit grants |
+| `METRONOME_CREDIT_TYPE_ID` | yes | yes | `Agata AI Credit` unit |
+| `SENTRY_DSN` | ignored | optional | DSN of the Sentry **`agata-api`** project (org `agata-h0`). Used only if `ENV=production`. Empty or non-prod = no reports |
+
+### Do not configure on the API
+
+| Variable | Reason |
+| --- | --- |
+| `PORT` | Vercel injects it |
+| `LOG_LEVEL` | Default `info` |
+| `INTERNAL_SERVICE_SECRET` | Removed (beta); auth via Better Auth Bearer |
+| `RATE_LIMIT_*` | Constants in code (90/1200 writes, 300/5000 reads) |
+| `BLOB_*` | Uploads only on Next |
+| `PLATFORM_CORE_AUTH_ENABLED` | Removed; always on |
+
+## By group
+
+### Database
+
+- `DATABASE_URL` — runtime (pooler).
+- `MIGRATE_DATABASE_URL` — migrations in the container entrypoint.
+- The runtime pool is limited per instance to 10 open connections and 2
+  idle by default. Limits can be adjusted with `DB_MAX_OPEN_CONNS`,
+  `DB_MAX_IDLE_CONNS`, and `DB_CONN_MAX_LIFETIME_MIN`.
+
+### Runtime
+
+- `ENV` — controls `IsProduction()` and strict validation.
+- `APP_ORIGIN` — Next app origin for deep links in emails.
+
+### Sentry
+
+- `SENTRY_DSN` — optional. DSN of the **`agata-api`** project in org `agata-h0`.
+  The runtime only initializes Sentry when `ENV=production` **and** the DSN is
+  not empty. Locally and in Preview it is ignored even if defined. The project
+  may need to be created first by an Owner of the Sentry org. Configure it
+  on Production of the **agata-api** Vercel project.
+
+### Crons, internal BFF, and email
+
+- `CRON_SECRET` — `Authorization: Bearer <CRON_SECRET>` on `/api/internal/*` (jobs, bootstrap, billing) and on product **GET/HEAD** with `:profileId` when the BFF serves reads from `'use cache: remote'`. Set the **same value** on the **agata-app** project.
+- `RESEND_API_KEY` — if empty, emails are not sent (reminders, budget alerts, invitations). The runtime logs this. The from-name matches the product; the brand color is that of `agata.in` / `updates.agata.in` (`#5351c0`).
+- `EMAIL_FROM` — optional. Default `Agata <reminders@updates.agata.in>`. If set, the mailbox is reused in product froms (`Tasks <…>`, `Finance <…>`, …).
+
+### Upstash Redis and QStash
+
+The API uses Redis for session cache and rate limits (limits fixed in code).
+The frontend no longer uses it for the Agent quota.
+
+QStash replaces frequent polling of notifications and the Metronome
+outbox:
+
+- `QSTASH_CALLBACK_ORIGIN` must point to the environment's API, for example the
+  corresponding Preview or Production domain. If unset, the runtime
+  uses `VERCEL_URL` of the current deployment.
+- Public `/api/qstash/*` routes do not accept a session or `CRON_SECRET`.
+  They verify `Upstash-Signature`, the exact `sub`, and the SHA-256 body
+  hash with both signing keys.
+- Postgres rows are the source of truth. The API uses per-generation
+  deduplication identifiers; rescheduling or retrying invalidates old
+  callbacks.
+- The four credential/origin variables are configured together. A
+  partial configuration fails startup in Production. Without QStash
+  credentials, hourly recovery still delivers with higher latency.
+
+### Agent credits and Metronome
+
+- `AGENT_CREDITS_ENFORCED` stays off during migration, backfill, and initial reconciliation. With `true`, the local projection blocks at zero and never grants overage.
+- The `METRONOME_*` variables are server-only. They are used for `studio:<profileId>` clients, contract/rate card, monthly grants, outbox ingestion, and reconciliation.
+- Configure the public webhook at `/api/webhooks/metronome`. The signature uses the `Date` and `Metronome-Webhook-Signature` headers.
+- Writes publish immediately to QStash. The
+  `/api/qstash/notifications/dispatch` and `/api/qstash/metronome/dispatch`
+  callbacks claim a single idempotent row.
+- `/api/qstash/failure` releases exhausted deliveries so they can be recovered.
+- The only safety cron for these flows is
+  `/api/internal/qstash/recover`, once per hour (`7 * * * *` in
+  `apps/api/vercel.json`). It dispatches overdue items, republishes missing deliveries, and
+  reconciles credits. It stays hourly (not every 2h): the cost of waking
+  the container is low compared with the risk of a stuck QStash/credits queue.
+- The previous internal dispatch/reconcile endpoints remain
+  available with `CRON_SECRET` for manual operation, but they no longer have a
+  frequent Vercel Cron.
