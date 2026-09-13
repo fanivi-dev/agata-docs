@@ -1,0 +1,137 @@
+---
+title: "Nutrition"
+description: "Meals, recipes, pantry, shopping, and weekly planner."
+---
+
+**Nutrition** covers the studio food cycle.
+
+## Modules
+
+| Module | Use |
+| --- | --- |
+| **Meals** | Landing: what you ate, in a weekly grid or list |
+| **Recipes** | Recipes and ingredients |
+| **Inventory** | Pantry |
+| **Shopping** | Shopping list |
+| **Planner** | Weekly plan and meal slots |
+
+## Meals and Planner: the week
+
+Both screens open with the same **date control** as [Today](/workspace/today), Activities, and [Week plan](/apps/week-plan): arrows, **Today** button, Mon–Sun strip, and a calendar to jump to any day. In Meals the day goes in `?dateKey=`; in Planner, `?dateKey=` (any day of the week) or `?week=` (Monday).
+
+Both screens share the same **7 days × 4 meals** grid (breakfast, lunch, dinner, snack), with the snack row collapsed by default. A meal log (and a planner slot when you are logging eating out) can attach an optional **venue** — a `places` pin, not pantry `location`.
+
+- **Day header** — day kcal and a bar for the protein / carbs / fat split (exact values on hover).
+- **Chips** — title, servings, kcal, and avatars of who eats it. If there are no avatars, the general audience is implicit and no extra label is shown. In **Meals**, everything from today backward is marked *eaten*; later slots stay *planned*. In **Planner** everything is *planned* until you activate the plan.
+- **Quick add** — the `+` in each cell opens suggestions based on what the household repeats most in that slot, plus saved recipes.
+- **Metrics bar** — above the grid. In Meals: logged, daily kcal average, protein per day, and gaps. In Planner: planned slots out of 28, daily average, and repeats.
+
+kcal and macros **are derived from the linked recipe × servings**. A meal with no recipe (or a recipe with no macros) shows `—` and does not count in averages. In the log panel, the macro summary only appears when at least one value is known and occupies its own row under servings.
+
+The planner adds the plan lifecycle (**Draft → Active → Done**), the *Activate* button with the number of meals it will write, **Duplicate last week**, and **Repeat this slot** on several days from the side panel.
+
+## Recipes: one place to edit
+
+**The recipe page is the editor.** There is no `/edit` route: name, description, and servings are edited inline and **autosaved** (the header shows *Saving… / All changes saved*).
+
+- **List** — recipe-card grid or compact list (toggle in the filter bar), with search over name, description, and tags, sort (recently updated / name / newest first), and *Show N more* pagination.
+- **Tag filter** — chips with counts, AND mode (a recipe must carry every selected tag). They come from the studio tag graph (`domainScope: nutrition`, entity `nutrition_recipe`), not from a column on the recipe.
+- **Create** — side panel with name, description, servings, and tags, then leaves you on the recipe page.
+- **Detail** — cover (upload or generate with AI), inline fields, servings selector, ingredient / tool / step editors, and a collapsible side panel with people and studio context (projects).
+
+### Ingredients
+
+The ingredient block is an inline editor: each row has name, quantity, and unit, **saves on blur** (or with `Enter`), reorders with the arrows, and deletes with `×`. The bottom row adds a new one. Maximum **200 ingredients** per recipe.
+
+Quantities are **absolute**: they describe the servings the recipe itself declares, so the servings selector **does not** rescale them — it changes the stored value and the block header (*for N servings*) reflects it.
+
+### Tools
+
+Utensil list (name only): same inline-edit pattern, reorder, and maximum **200** per recipe. They are not sent to shopping.
+
+### Steps
+
+Ordered instructions (multiline text): save on blur (or `⌘/Ctrl+Enter`), reorder with arrows, and maximum **200** per recipe.
+
+### Recipe actions
+
+- **Duplicate** — copies the recipe with ingredients, steps, and tools and the *(copy)* suffix, then opens the copy. The cover **is not** copied: blobs belong to the entity that uploaded them.
+- **Send to shopping** — creates one shopping item per ingredient (`source: recipe`, linked to the recipe). Disabled while the recipe has no ingredients.
+- **Print** and **Copy as markdown** — export name, description, servings, ingredients, tools, and steps as stored.
+
+## Shopping: the list and store mode
+
+Search with no matches has its own empty state and a clear-search action. Mine and Auto-added also distinguish an empty filtered view from a clear shopping list. The cart progress summarizes bought items; pantry shortfalls already on the list are described as covered by the list, not as replenished stock. Once a linked pantry item reaches its minimum, its provenance label shows the pantry quantity without claiming it is still below minimum.
+
+The list is **grouped by provenance**, not by aisle: *Below minimum* (`source: low_stock`), *From recipes* (`source: recipe`), and *Added by hand* (`source: manual`). Each row shows its concrete origin under the name — the recipe that requested it, or the pantry `2 of 6 cup`.
+
+- **Metrics** — to buy (with a progress bar of what is already bought), from recipes, below minimum, and assigned.
+- **Filters** — `All`, `Mine`, `Auto-added` (recipe + pantry), and `Bought`, plus search over name, unit, and origin.
+- **Right rail** — shopping-run summary and **suggestions**: pantry items below their minimum that are not yet on the list, with *Add all* (bulk create). The run can also **set a store** (name, date, place) on a shopping collection. That place is geography; it is not pantry storage.
+- **Detail** (`/nutrition/shopping/[itemId]`) — *Why it is on the list* links to the source recipe or pantry item; activity (created / bought / last change); quantity, status, and assignment. When the item comes from a pantry minimum, *Mark as bought* can **top the pantry up** in the same gesture.
+- **Store mode** (`/nutrition/shopping/store`) — single column, large rows, and group-by-group progress with a progress bar. Ticking here writes the same status as the list. The aisle checklist itself stays unchanged.
+
+## Inventory: the pantry
+
+Items are grouped by **location** (`location`), with a count and how many need attention. Each row shows the stock bar against its minimum, the expiry pill, and the quantity stepper. Pantry `location` is a storage shelf (Fridge, Cupboard), **not** a map place. Do not treat it as geography.
+
+- **Metrics** — active, expired, expiring (7 days), and below minimum (with *Send all to shopping*). The attention bar counts each item once, including items with no stock, even when it is both low and near expiry.
+- **Use it up first** — strip of what expires in the next week.
+- **Filters** — `All`, `Low stock`, `Expiring`, `Expired`, search, and location facet. A filtered view with no matches offers **Clear filters**, which resets search, scope, and location; the first-item prompt appears only when the pantry is empty.
+- **To shopping** — creates the item with `source: low_stock` and `inventoryItemId`, for the amount missing to the minimum. If one is already pending, the row shows *On the list* instead of the button.
+- **Detail** (`/nutrition/inventory/[itemId]`) — stock bar with the minimum mark, expiry, linked shopping items, notes, quantity stepper, and edit in a side panel.
+
+## Collaboration
+
+Team content is visible to studio members. Recipes and meal plans can also
+be **shared** without membership:
+
+| Visibility | Who can see |
+| --- | --- |
+| Team only (`members`) | Members with the nutrition section (default) |
+| Followers | Team, or a signed-in follower of the studio |
+| Anyone with the link (`public`) | Signed-out included |
+
+Public URLs: `/@handle/recipes/:recipeId`, `/@handle/plans/:planId`, and
+`/@handle/meals/:dateKey` (visible logs that day: title, photo, meal
+type, optional visible recipe). The public studio catalog lists
+recipes, meal plans, and recent meal days the viewer may see.
+Inventory and shopping stay members-only. Public meal JSON has no
+macros, notes, or assignees.
+
+Collaboration inside the team uses the same pattern as tasks:
+
+- **`createdBy`** — who created the item  
+- **`assignedTo`** — one or more relevant people (meal/slot: who it is for; shopping: who buys; recipe/pantry: optional owners)
+
+Empty `assignedTo` = general audience, no visible label. The **All** filter shows the whole studio; filtering by member shows items where that person is in `assignedTo`.
+
+## Insights
+
+The **Insights** tab (`/nutrition/insights`) summarizes log consistency (date window), macros only when known, mix by meal, planner occupancy, low/expired inventory, and pending shopping. API: `GET /api/nutrition/studios/:profileId/insights-summary?startDateKey=&endDateKey=&todayLocalDateKey=`.
+
+## Main routes
+
+| Route | Use |
+| --- | --- |
+| `/nutrition` | Meals (`?view=week\|list`, `?dateKey=`) |
+| `/nutrition/insights` | Insights (logs, pantry, shopping) |
+| `/nutrition/recipes` | Recipes (`?create=1` opens the create panel) |
+| `/nutrition/recipes/[recipeId]` | Recipe: read **and** inline edit |
+| `/nutrition/inventory` | Pantry |
+| `/nutrition/inventory/[itemId]` | Pantry item |
+| `/nutrition/shopping` | Shopping |
+| `/nutrition/shopping/store` | Store mode |
+| `/nutrition/shopping/[itemId]` | Shopping item |
+| `/nutrition/planner` | Planner (`?week=` or `?dateKey=` like Meals; any day of the week) |
+
+## Tips
+
+- The meal planner (`/nutrition/planner`) **is not** the Daily [Week plan](/apps/week-plan) (`/week-plan`).  
+- The planner can **materialize** meals into the log (copies slot assignees).  
+- Shopping items can originate from recipes or inventory.  
+- Meals downloads the visible week as CSV; Recipes, Inventory, and Shopping download the full studio dataset.
+- The recipe cover is **added / replaced from detail** (manual upload or **AI generation**: prompt, preview, confirm → Vercel Blob / `imageUrl`). List cards only display it.  
+- In team, often **opt-in**.  
+
+Theme: `nutrition`.
