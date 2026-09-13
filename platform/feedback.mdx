@@ -1,0 +1,50 @@
+---
+title: "Feedback"
+description: "Feedback submission modal and internal review hub at /feedback."
+---
+
+**Feedback** has two surfaces: a **submission modal** available to any user from the user menu (also on the studios home) and from ⌘K (*Send feedback*), and a **review hub** at the root route `/feedback`.
+
+## Submission (modal)
+
+- Opens from the studio or platform user menu, or with the *Send feedback* command-palette action.
+- Form: type (`bug` / `idea` / `praise`), message (counter + draft in `localStorage`), area/domain (preselected from the current route with the *Detected from your current page* hint; searchable combobox), optional current URL, and up to 5 images.
+- Submission remains **studio-scoped**: `POST /api/feedback/studios/:profileId` with the user session. On platform surfaces the user’s first active studio is used.
+
+## Review hub
+
+| Route | Use |
+| --- | --- |
+| `/feedback` | List with domain filter and cursor pagination |
+| `/feedback/:feedbackId` | Detail with type, origin context, and images |
+
+- Authenticated root routes (`(authenticated)` group): require a Better Auth session like `/connections`.
+- They use the platform shell (nav + user menu). They do **not** appear as a product navigation destination; the hub is opened by URL.
+- The former studio-scoped hub (`/workspaces/:id/feedback`, then `/studios/:id/feedback`) and the studio gate named `feedback` **no longer exist**.
+
+### Access gate
+
+1. The route requires an authenticated session.
+2. If the session email is in `FEEDBACK_ADMIN_EMAILS` (comma-separated list), the hub opens without a password (product owners / operators).
+3. Otherwise, if there is a valid unlock cookie, the list is shown.
+4. If there is no cookie: gate screen with shell, *Back to studios* link, and, when applicable, a password input.
+5. A server action compares the password in a timing-safe way with `FEEDBACK_ADMIN_PASSWORD` and, on match, issues a signed httpOnly cookie (HMAC-SHA256 with `BETTER_AUTH_SECRET`, 30-day TTL).
+6. List and detail call `requireFeedbackAdminSession()` before reading data.
+
+If there is **neither** `FEEDBACK_ADMIN_PASSWORD` (+ `BETTER_AUTH_SECRET`) **nor** `FEEDBACK_ADMIN_EMAILS`, the screen explains which variables to set on the **agata-app** Vercel project — it does not invent values.
+
+Variable names and environments: [`agata-app`](/config/app). Do not document values.
+
+### Reads
+
+After unlock, the BFF reads the Go API over the internal channel with `CRON_SECRET`:
+
+- `GET /api/internal/feedback?domain=&cursor=&limit=`
+- `GET /api/internal/feedback/:feedbackId`
+
+## Code
+
+- Feature: `apps/app/features/feedback/`
+- Services: `apps/app/services/feedback/` (`queries/`, `actions/`, `server/feedback-admin-session.ts`)
+- Routes: `apps/app/app/(authenticated)/feedback/`
+- API: `apps/api/internal/feedback/`

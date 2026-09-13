@@ -1,0 +1,92 @@
+---
+title: "Legal readiness"
+description: "Minimum technical and operational controls before commercializing Agata from Spain."
+---
+
+This page documents product safeguards. It does not replace the judgment
+of tax, privacy, or industrial-property counsel.
+
+## Launch status
+
+Agata can be developed and tested without a published commercial identity.
+Before accepting real payments these minima must be in place:
+
+1. tax registration and Social Security enrollment of the party that invoices;
+2. complete public legal identity;
+3. an operational contact channel;
+4. tax and VAT treatment validated for the countries of sale;
+5. provider contracts and processing records reviewed;
+6. a documented decision on health and nutrition data.
+
+Legal pages show a readiness notice while
+`LEGAL_OPERATOR_NAME`, `LEGAL_OPERATOR_TAX_ID`, or
+`LEGAL_OPERATOR_ADDRESS` are missing.
+
+## Public surfaces
+
+| Route | Purpose |
+| --- | --- |
+| `/legal-notice` | Service provider identification, contact, and site-use rules |
+| `/privacy` | GDPR information on purposes, legal bases, recipients, transfers, retention, and rights |
+| `/terms` | Terms of use, plans, AI credits, cancellation, and limits |
+| `/cookies` | Necessary technologies and analytics currently in use |
+
+Legal date and version stay aligned with
+`shared/constants/legal-document-versions.ts`.
+
+## Acceptance evidence
+
+Sign-up requires an explicit checkbox before credentials or Google. For new
+accounts Better Auth stores, server-side:
+
+- `termsAcceptedAt`;
+- `termsVersion`;
+- `privacyNoticeVersion`.
+
+The migration does not backfill these fields for existing accounts. A future
+re-acceptance must be explicit and keep evidence of each version; do not
+invent retroactive acceptance.
+
+## Cookies and analytics
+
+The current setup uses essential storage for session, security, language,
+theme, and UI state. Vercel Web Analytics is kept only while it operates
+without cookies or persistent identifiers.
+
+If you add advertising, pixels, replay, identifiable analytics, or any
+optional storage, you must implement prior consent by category and update
+`/cookies` before enabling it.
+
+## Sensitive data
+
+Health and nutrition may contain special categories of data. Before opening
+those features to real customers you need a documented decision on purpose,
+GDPR Article 9 legal basis, minimization, access, deletion, export, retention,
+and incident response. If explicit consent is used, it must be demonstrable
+and withdrawable without ambiguity.
+
+The Agent must not be presented as a substitute for medical, legal, or
+financial advice. Data entered in prompts may be sent to model providers and
+must follow the same classification and controls.
+
+## Providers and transfers
+
+Keep a living inventory of every provider that processes data: purpose,
+categories, region, subprocessors, contract/DPA, transfer mechanism,
+retention period, and deletion procedure. The public policy must describe
+real categories and practices, not names or promises that are not yet
+confirmed.
+
+## Operator changes
+
+When moving from a sole trader to a company:
+
+1. update the legal-identity variables;
+2. review invoices, Stripe, contracts, and the bank account;
+3. notify any change of controller;
+4. update the documents and their version;
+5. request a new acceptance when the change is material.
+
+See also [Billing and plans](/platform/billing-plans),
+[Configuration → agata-app](/config/app), and
+[Better Auth](/database/better-auth).

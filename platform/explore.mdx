@@ -1,0 +1,59 @@
+---
+title: "Explore"
+description: "Recommended public studios next to Connections."
+---
+
+**Explore** ranks public studios you can already resolve. It is not a new
+directory, search engine, or follow graph.
+
+## Route
+
+```txt
+/explore
+```
+
+Platform nav: Studios → Connections → **Explore**.
+
+## What it ranks
+
+There is no recommendations API. The page composes existing reads:
+
+- Connection usernames and names, resolved with `GET /p/{handle}`
+- Public studios you belong to but do not own
+
+Private studios stay 404, same as `/@handle`. Owned studios stay on
+[Studios](/getting-started/first-studio). Exact handle lookup lives here
+too: type `@handle` or a name that slugs to one. It uses the same
+`GET /api/p/:handle` path as `/@handle`.
+
+| Signal | Source |
+| --- | --- |
+| Followers | `followerCount` on the public studio |
+| Public activity | Counts from public recipes, collections, library items, goals, and meal days |
+| Kind | Person or organization |
+| Public presence | Bio and image on the public studio |
+| Follow / member | `isFollowing` and `viewerIsMember` |
+
+Sort defaults to that mix. You can switch to followers, public activity, or name.
+
+## Capabilities
+
+| Action | Detail |
+| --- | --- |
+| Filter | All / People / Organizations / Not following |
+| Search | Name, handle, bio, or exact `@handle` lookup |
+| Follow | Same `POST` / `DELETE /p/{handle}/follow` as the public studio page |
+| Open | `/@handle` |
+
+## Stack
+
+- UI: `features/platform/domains/explore/`
+- BFF: `studiosQueries.listRecommendedPublicStudios` plus
+  `studiosQueries.getPublicStudio` for handle lookup
+- Nav: `shared/constants/platform-area-catalog.ts`
+
+## It is not
+
+- A substitute for Connections (people you invite as members).
+- A substitute for Studios (workspaces you run or belong to).
+- A new ranking product or stored recommendation model.
