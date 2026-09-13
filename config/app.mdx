@@ -1,0 +1,190 @@
+---
+title: "agata-app"
+description: "Preview and Production environment variables for the Vercel agata-app project (Next.js)."
+---
+
+Vercel project for the frontend (Root Directory `apps/app`, Next.js framework). Production: [agata.in](https://agata.in). Config: `apps/app/vercel.json` (`ignoreCommand` → `scripts/vercel-should-build.sh` skips builds when the diff does not touch `apps/app` / `packages` / lockfile). Next and Eve use the Node.js 24+ runtime with Turbopack for both `dev` and `build`; Bun remains the package manager. The install command pins Bun 1.4.0 through `bunx` so Vercel can read the repository's version 3 text lockfile without enabling the Bun Functions runtime. Do **not** use Vercel Services at the monorepo root (it breaks App Router; see [Configuration](/config)).
+
+## Local development runtime
+
+The app's `dev` script starts Node with a 2048 KB V8 stack. The deep workspace
+layout tree can exhaust Node 24's default 984 KB stack during development SSR,
+causing a recoverable `Maximum call stack size exceeded` error and a client
+rendering fallback. This setting is limited to the development command.
+
+The Bun patch for Next 16.3.5 forwards `--stack-size` to the dev server child
+through `execArgv`. Next's unpatched flag formatter puts it in `NODE_OPTIONS`,
+where Node rejects it. Recheck this patch when upgrading Next; the temporary
+diagnostic preload is not part of the app's startup.
+
+Legend: **yes** = configured in that environment on Vercel. **no** = not defined there.
+
+<Warning>
+Names and purpose only. Do not document or commit values.
+</Warning>
+
+## Preview / Production matrix
+
+| Variable | Preview | Production | Description |
+| --- | --- | --- | --- |
+| `DATABASE_URL` | yes | yes | Postgres (Better Auth, Eve, and session/billing reads). Prefer the pooled endpoint. |
+| `PG_POOL_MAX` | optional | optional | Per-instance Postgres pool ceiling for the Next and Eve runtimes. Default `5`. |
+| `BETTER_AUTH_SECRET` | yes | yes | Better Auth session secret |
+| `BETTER_AUTH_URL` | yes | yes | Canonical auth URL (prod → `https://agata.in`) |
+| `GOOGLE_CLIENT_ID` | yes | yes | Google OAuth (together with secret) |
+| `GOOGLE_CLIENT_SECRET` | yes | yes | Google OAuth |
+| `APPLE_CLIENT_ID` | optional | yes for Apple login | Web Service ID used by Sign in with Apple |
+| `APPLE_APP_BUNDLE_IDENTIFIER` | optional | yes for Apple login | Native Sign in with Apple App ID (if applicable) |
+| `APPLE_TEAM_ID` | optional | yes for Apple login | Apple Developer Team ID |
+| `APPLE_KEY_ID` | optional | yes for Apple login | Key ID associated with Sign in with Apple |
+| `APPLE_PRIVATE_KEY` | optional | yes for Apple login | `.p8` private key; server-only, accepts escaped `\n` newlines |
+| `GO_API_URL` | yes | yes | Base URL of the **api** project (server-side). Local: `http://localhost:8080` |
+| `GO_API_VERCEL_PROTECTION_BYPASS` | optional | optional | SSO bypass for protected API previews |
+| `CRON_SECRET` | yes (if you use the internal API / shared cache) | yes | Same value as in **agata-api**. Bearer for Go internal endpoints and cached BFF reads. `/api/internal/eve-cache` uses the user's Better Auth bearer. Server-only |
+| `FEEDBACK_ADMIN_PASSWORD` | recommended | recommended | Shared password for the internal hub (`/feedback`). Server-only; unlocks an httpOnly cookie signed with `BETTER_AUTH_SECRET` (30 days). Can be omitted if you use `FEEDBACK_ADMIN_EMAILS` |
+| `FEEDBACK_ADMIN_EMAILS` | recommended | recommended | Comma-separated list of product-owner / operator emails with passwordless hub access. Server-only |
+| `BLOB_READ_WRITE_TOKEN` | yes | yes | Vercel Blob token (server-side uploads/deletes) |
+| `BLOB_DEV_STORE_ID` | yes | no | Preview Blob store |
+| `BLOB_DEV_WEBHOOK_PUBLIC_KEY` | yes | no | Blob webhook public key (preview) |
+| `BLOB_STORE_ID` | no | yes | Production Blob store |
+| `BLOB_WEBHOOK_PUBLIC_KEY` | no | yes | Blob webhook public key (production) |
+| `NEXT_PUBLIC_APP_URL` | yes | yes | Public app origin (browser) |
+| `NEXT_PUBLIC_SITE_URL` | yes | yes | Site / marketing origin (browser) |
+| `NEXT_PUBLIC_DOCS_URL` | optional | optional | Docs7 origin. Unset defaults to `https://docs.agata.in`. `agata.in/docs` 308s here |
+| `RESEND_API_KEY` | yes | yes | Resend (Better Auth verification + password reset) |
+| `EMAIL_FROM` | yes | yes | Sender (same value as in `agata-api`) |
+| `AI_GATEWAY_API_KEY` | yes | yes | Server-side AI Gateway; required to issue realtime voice client secrets |
+| `EVE_TOOL_ROUTING_MODE` | optional | optional | Eve tool exposure: `legacy` (default and rollback) or `progressive` (bounded core + screen/discovered groups). Keep `legacy` until the provider-backed rollout matrix passes |
+| `EVE_MODEL_ROUTING_MODE` | optional | optional | Eve text-model policy: `control` (Grok 4.6 every step), `shadow` (log the cheap route, still use 4.6), or `routed` (semantic routine / reasoning / frontier). Unset defaults to `control` until the provider-backed rollout gate passes. Server-only rollback |
+| `EVE_MODEL_ROUTING_PERCENT` | optional | optional | 0–100 share of turns that use the routed policy when mode is `routed`. Unset defaults to 100 |
+| `EVE_EVAL_FIXTURE` | **never** | **never** | Local-only provider-eval principal switch. Startup rejects it outside `eve dev` or `vercel dev` |
+| `EVE_EVAL_PROFILE` | **never** | **never** | Local eval studio: `denied` or `enabled`; preflight validates its section contract before provider use |
+| `EVE_EVAL_RUN_ID` | **never** | **never** | Unique 6–64 character local eval namespace used in durable fixture labels |
+| `NEXT_PUBLIC_EVE_TOOL_RESULT_UI_MODE` | optional | optional | Eve result presentation: `structured` (default) or `legacy` (generic receipt rollback). Public build-time value; changing it requires a new deployment |
+| `STRIPE_SECRET_KEY` | yes | yes | Stripe secret key |
+| `STRIPE_WEBHOOK_SECRET` | yes | yes | Stripe webhook signature |
+| `STRIPE_PRICE_PRO_MONTHLY` | yes | yes | Pro monthly Price ID |
+| `STRIPE_PRICE_PRO_ANNUAL` | yes | yes | Pro annual Price ID |
+| `STRIPE_PRICE_BUSINESS_MONTHLY` | yes | yes | Business monthly Price ID |
+| `STRIPE_PRICE_BUSINESS_ANNUAL` | yes | yes | Business annual Price ID |
+| `STRIPE_PRICE_EXTRA_MEMBER_MONTHLY` | yes | yes | Extra member monthly Price ID |
+| `STRIPE_PRICE_EXTRA_MEMBER_ANNUAL` | yes | yes | Extra member annual Price ID |
+| `STRIPE_PRICE_AI_CREDIT_PACK_MONTHLY` | yes | yes | 500-credit pack monthly Price ID |
+| `STRIPE_PRICE_AI_CREDIT_PACK_ANNUAL` | yes | yes | 500-credit pack annual Price ID |
+| `LEGAL_OPERATOR_NAME` | pending | pending | Full name or legal entity published on the legal pages |
+| `LEGAL_OPERATOR_TAX_ID` | pending | pending | NIF/NIE/CIF published on the legal notice |
+| `LEGAL_OPERATOR_ADDRESS` | pending | pending | Professional address published to meet provider-identification requirements |
+| `LEGAL_OPERATOR_REGISTRY` | optional | optional | Registry details when applicable |
+| `LEGAL_CONTACT_EMAIL` | optional | optional | Public legal contact; fallback `legal@agata.in` |
+| `NEXT_PUBLIC_SENTRY_DSN` | ignored | yes (if Sentry) | Public DSN of the Sentry **`agata`** project (org `agata-h0`); browser client. Runtime only in Production |
+| `SENTRY_DSN` | ignored | yes (if Sentry) | Same DSN for server/edge; server-only. Runtime only in Production |
+| `SENTRY_ORG` | no | yes for source maps | Sentry org slug: `agata-h0`. Production build only |
+| `SENTRY_PROJECT` | no | yes for source maps | Next project: `agata`. Production build only |
+| `SENTRY_AUTH_TOKEN` | no | yes for source maps | Org token with releases/source-maps permissions. Production build only; never to the client |
+<Note>
+**Stripe:** Preview uses test Prices and Production uses live Prices. If any of the eight Price IDs is missing, the Stripe plugin does not load.
+</Note>
+
+<Note>
+**Agent (Eve):** `eve@0.47.6`, mounted with `withEve(withNextIntl(nextConfig))` in `apps/app/next.config.ts`. HTTP channel at `/eve/v1/*`. UI at `/studios/:id/agent`. Do not use a separate Eve service in `vercel.json` of the same root as Next (it breaks the deploy). `0.48.0` is the current line but is blocked here by the 24-hour `minimum-release-age` policy; bump when that release is older than a day.
+</Note>
+
+## By group
+
+### Auth (Better Auth + Postgres)
+
+- `DATABASE_URL` — runtime DSN (e.g. PgBouncer / port 6432). Point this at the pooled endpoint when the provider offers one.
+- `PG_POOL_MAX` — shared pool ceiling per Next/Eve process (default 5). Better Auth, billing, Eve chat persistence, Eve memory, and Eve security share that one pool in their process boundary.
+- Eve channel auth memos Better Auth `get-session` + studio membership for 30 seconds per cookie/studio hash. Ownership claims still run on every request.
+- `BETTER_AUTH_SECRET` — at least ~32 characters in real environments.
+- `BETTER_AUTH_URL` — base URL Better Auth uses for callbacks.
+- **OAuth host:** the Google `state` cookie is host-only. Social login must start and finish on the same origin as `BETTER_AUTH_URL` (prod → `https://agata.in`). Opening Google from a `*.vercel.app` host and returning to `agata.in` causes `state_mismatch`. In production use the canonical domain; in Preview, OAuth is only reliable if `BETTER_AUTH_URL` / `NEXT_PUBLIC_SITE_URL` match the preview host (or you redirect to the canonical host before `signIn.social`).
+- `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` — both or neither; if missing, Google OAuth is not registered.
+- `APPLE_CLIENT_ID`, `APPLE_APP_BUNDLE_IDENTIFIER`, `APPLE_TEAM_ID`, `APPLE_KEY_ID`, and `APPLE_PRIVATE_KEY` — full set to register Apple. The client-secret JWT is generated at runtime and never exposed to the client.
+- `RESEND_API_KEY` / `EMAIL_FROM` — verification and password-reset delivery via Resend. Default from: `Agata <reminders@updates.agata.in>`. HTML uses brand color `#5351c0`. Email verification is **required** only when `VERCEL_ENV=production`.
+
+### Go API
+
+- `GO_API_URL` — base URL of the **api** project (server-side). On Vercel: the api deployment URL; locally: `http://localhost:8080` (or the code default if unset). In `next dev`, a remote URL is ignored and `http://localhost:8080` is used so seed login does not talk to an API that cannot see the session.
+- BFF→Go auth (writes + user-scoped reads): Better Auth session Bearer.
+- BFF→Go auth (`/api/internal/*` + shared cacheable reads): `Authorization: Bearer <CRON_SECRET>` — same secret as crons on **agata-api**. Membership/section is validated in Next **before** `'use cache: remote'`.
+- Internal Next routes without a cookie: the proxy lets through `/api/internal/eve-cache` (Better Auth session bearer in the handler).
+
+### Feedback hub (`/feedback`)
+
+- `FEEDBACK_ADMIN_EMAILS` — comma-separated emails of product owners / operators. If the session email matches, the hub opens without a password.
+- `FEEDBACK_ADMIN_PASSWORD` — optional shared unlock. Comparison is timing-safe and issues a signed httpOnly cookie (HMAC-SHA256 with `BETTER_AUTH_SECRET`, 30-day TTL). Requires `BETTER_AUTH_SECRET`.
+- Set **at least one** of the two on Preview and Production of the **agata-app** project. With neither, the gate UI explains which variables are missing (it does not invent values) and nobody can read feedback.
+- Reads go to `GET /api/internal/feedback*` with `CRON_SECRET`, so that secret must also be present.
+
+### Blob
+
+- `BLOB_READ_WRITE_TOKEN` — required for private uploads/deletes in server actions (Next only; the API does not use Blob).
+- `BLOB_DEV_*` prefixes (preview) vs `BLOB_*` (production) for store and webhook identity.
+
+### Public URLs
+
+- `NEXT_PUBLIC_APP_URL` / `NEXT_PUBLIC_SITE_URL` — same origin in prod (marketing + app).
+- `NEXT_PUBLIC_DOCS_URL` — Docs7 origin. Unset → `https://docs.agata.in`. `/docs` and `/docs/*` on the app 308 to that host. Add `docs.agata.in` as a Docs7 custom domain (Free). Do not add it as a Vercel project domain; CNAME DNS to the target Docs7 shows.
+
+### Billing (Stripe)
+
+All `STRIPE_*` vars are required to load the plugin. The initial checkout uses only the plan Price; extra quantities are managed later from Billing. Production webhook: `https://agata.in/api/auth/stripe/webhook`.
+
+The Next app no longer needs `UPSTASH_REDIS_REST_URL` or `UPSTASH_REDIS_REST_TOKEN` for Agent. The old `ai:msgs:d:…` keys expire by TTL.
+
+### Public legal identity
+
+The `LEGAL_OPERATOR_*` variables feed `/legal-notice`, `/privacy`,
+`/terms`, and `/cookies`. Although they are configured as server variables, their
+values are rendered publicly: do not use addresses or data the operator
+does not want published.
+
+Do not enable charges until at least `LEGAL_OPERATOR_NAME`,
+`LEGAL_OPERATOR_TAX_ID`, and `LEGAL_OPERATOR_ADDRESS` are complete. `LEGAL_OPERATOR_REGISTRY`
+can stay empty for a sole trader not listed in a commercial registry. Keep `LEGAL_CONTACT_EMAIL` on an operational mailbox.
+
+### Agent (Eve), dictation, voice, and image generation
+
+- **Agent chat:** Eve runtime (`withEve` in Next), UI at `/agent`, channel `/eve/v1/*`, persistence in `eve_*` tables.
+- **Tool routing:** `EVE_TOOL_ROUTING_MODE=progressive` enables bounded direct-tool exposure. An unset value or `legacy` preserves the full section-gated catalog. This is a server-only rollout switch and the one-setting rollback.
+- **Model routing:** `EVE_MODEL_ROUTING_MODE` is `control`, `shadow`, or `routed`. Unset uses `control` until the provider-backed rollout gate passes. `routed` uses Grok 4.1 Fast Non-Reasoning for routine work, Fast Reasoning for risk or tool failure, and one Grok 4.6 rescue. `shadow` logs the proposed route without changing the production model. Gateway `402`/`429` fail the turn; a turn already accepted by the BFF still consumes its credit. Warning thresholds for the monthly inference envelope are 50%, 75%, and 90%.
+- **Tool result UI:** an unset `NEXT_PUBLIC_EVE_TOOL_RESULT_UI_MODE` or `structured` renders semantic cards, rows, summaries, and tool states. `legacy` restores generic receipts without changing execution, approvals, or stored history. This browser-visible value is compiled into the client bundle and rolls out independently from tool routing.
+- **Agent dictation:** server action with AI SDK `transcribe` via AI Gateway (`xai/grok-stt`).
+- **Agent realtime voice:** `POST /api/agent/voice/token` validates chat, membership, and an active credit reservation before issuing a 30-second `vcst_` client secret with `gateway.experimental_realtime.getToken` for `xai/grok-voice-think-fast-2.0`. The browser connects to the Gateway WebSocket; audio does not pass through Next. Issuing client secrets requires `AI_GATEWAY_API_KEY` in Preview, Production, and local; project OIDC does not replace this key.
+- Image generation in Activities: server action with AI SDK `generateImage` via AI Gateway (`bfl/flux-2-flex`). On Vercel it uses project OIDC; locally you may need `AI_GATEWAY_API_KEY`.
+
+### Sentry (errors, tracing, source maps)
+
+Sentry org: `agata-h0`. Next.js project: **`agata`**.
+
+- `NEXT_PUBLIC_SENTRY_DSN` — DSN of the `agata` project embedded in the client. The SDK only reports when `VERCEL_ENV=production`.
+- `SENTRY_DSN` — same DSN for server/edge instrumentation. Server-only. Also ignored outside Production.
+- `SENTRY_ORG` / `SENTRY_PROJECT` — `agata-h0` / `agata`. Used in the **Production build** to upload source maps (not in Preview or local).
+- `SENTRY_AUTH_TOKEN` — organization token for releases/source maps in the Production build. Do not expose it to the client or commit it.
+
+Sentry is **off in local and Preview** even if the DSN is defined. `withSentryConfig` (tunnel `/monitoring` and source maps) only runs when `VERCEL_ENV=production`.
+
+Sampling in Production (to limit Active CPU of the `/monitoring` tunnel): traces `0.05`, session replay `0.02`, replay on error `1.0`.
+
+## System variables (Vercel / Node)
+
+Injected by the platform; not managed in the dashboard as custom env:
+
+| Variable | Use in the app |
+| --- | --- |
+| `VERCEL_ENV` | Distinguish production vs preview (e.g. email verification) |
+| `VERCEL_URL` / `VERCEL_BRANCH_URL` | Trusted origins / preview URLs |
+| `NODE_ENV` | `production` / `development` |
+
+## Local only (not on Vercel today)
+
+| Variable | Notes |
+| --- | --- |
+| `GO_API_URL` | Local (e.g. `http://localhost:8080`); if missing, the code uses that default. In `next dev`, localhost is forced if the value is remote |
+| `GO_API_ALLOW_REMOTE` | `1` so `next dev` honors a remote `GO_API_URL` (e.g. preview) |
+| `APP_LOG_LEVEL` | Optional; app logging |
+| `BETTER_AUTH_TRUSTED_ORIGINS` | Optional CSV list of extra trusted origins |
+| `EVE_EVAL_FIXTURE`, `EVE_EVAL_PROFILE`, `EVE_EVAL_RUN_ID`, `EVE_EVAL_PROFILE_ID`, `EVE_EVAL_SESSION_TOKEN`, `EVE_EVAL_SECTIONS` | Provider-eval fixture only. The studio preflight requires the complete set and these variables must never be configured on Preview or Production |
+
+There is no `.env.example` in the repo. Names and environments: this page and [Configuration](/config).
