@@ -1,0 +1,48 @@
+---
+title: "Domains (index)"
+description: "Hub for goals, pomodoro, activities, reminders, library, health, and nutrition."
+---
+
+Primary source: `000005_domains.up.sql` (large file).
+
+Each subdomain has a page with **columns**:
+
+<CardGroup cols={2}>
+  <Card title="Goals" icon="bullseye" href="/database/goals">
+    goals, milestones, links, images, vision boards.
+  </Card>
+  <Card title="Pomodoro" icon="timer" href="/database/pomodoro">
+    timers and sessions.
+  </Card>
+  <Card title="Activities" icon="repeat" href="/database/activities">
+    activities, logs, images.
+  </Card>
+  <Card title="Reminders" icon="bell" href="/database/reminders">
+    calendar reminders.
+  </Card>
+  <Card title="Library" icon="books" href="/database/library">
+    items, subitems, collections.
+  </Card>
+  <Card title="Health" icon="heart-pulse" href="/database/health">
+    check-ins, metrics, routines, sessions.
+  </Card>
+  <Card title="Nutrition" icon="utensils" href="/database/nutrition">
+    recipes, inventory, meals, shopping, water, plans.
+  </Card>
+  <Card title="Places" icon="map-pin" href="/database/places">
+    Shared lat/lng places. Product rows reference `place_id`.
+  </Card>
+  <Card title="Week plan" icon="calendar-days" href="/database/week-plan">
+    week_plans + week_plan_items + week_plan_series (`000044` / `000051`, not meal plans).
+  </Card>
+</CardGroup>
+
+## Order in the SQL file
+
+1. Goals  
+2. Pomodoro  
+3. Activities  
+4. Reminders  
+5. Library  
+6. Health  
+7. Nutrition  

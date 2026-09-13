@@ -1,0 +1,49 @@
+---
+title: "Notifications"
+description: "scheduled_notifications queue for emails and reminders."
+---
+
+Sources: `000009_scheduled_notifications.up.sql` and
+`000033_qstash_delivery.up.sql`.
+
+## `scheduled_notifications`
+
+| Column | Type | Notes |
+| --- | --- | --- |
+| `id` | UUID PK | |
+| `profile_id` | UUID → profiles CASCADE | |
+| `user_id` | UUID → users | Recipient |
+| `domain` | TEXT | Product domain |
+| `entity_type` / `entity_id` | TEXT | Source entity |
+| `kind` | TEXT | Default `email_reminder` |
+| `send_at` | TIMESTAMPTZ | When to send |
+| `timezone` | TEXT | Default UTC |
+| `payload` | JSONB | Default `{}` |
+| `status` | TEXT | Default `pending` |
+| `idempotency_key` | TEXT UNIQUE | Prevents duplicates |
+| `attempt_count` | INT | |
+| `last_error` | TEXT | |
+| `sent_at` | TIMESTAMPTZ | |
+| `qstash_message_id` | TEXT | Published message; nullable until publish |
+| `qstash_deduplication_id` | TEXT | Current delivery generation (no `:`; QStash rejects it) |
+| `qstash_published_at` | TIMESTAMPTZ | Last successful publish |
+| `qstash_publish_attempt_count` | INT | Publish attempts for the generation |
+| `qstash_last_error` | TEXT | Last QStash infrastructure failure |
+| `created_at` / `updated_at` | TIMESTAMPTZ | |
+
+### Indexes
+
+- Due: `(status, send_at)` WHERE pending  
+- Entity: `(domain, entity_type, entity_id)`
+- QStash publish: `(send_at, created_at)` WHERE pending and without a message id
+
+## Relation to domain
+
+`*_scheduled_job_id` fields on tasks, activities, reminders, library, finance recurring, etc. coordinate with this queue / jobs.
+
+Postgres is the source of truth. QStash only wakes the exact callback: the
+handler claims the row if `id`, status, and `qstash_deduplication_id` are still
+current. Rescheduling, canceling, or retrying rotates the generation, so an
+old callback is a no-op.
+
+Go domain: `internal/notifications`.

@@ -1,0 +1,43 @@
+---
+title: "Activities"
+description: "activities, activity_logs, and activity_images."
+---
+
+## `activities`
+
+| Column | Notes |
+| --- | --- |
+| `profile_id` / `created_by` | |
+| assignees | Table `activity_assignees` (N); API `assignedTo: string[]` |
+| `name` | |
+| `start_time` / `end_time` | TEXT (template local time) |
+| `description` / `color` / `image` | |
+| `current_streak` / `longest_streak` / `completion_rate` | Stats synced on log write; reads re-derive them from `activity_logs` |
+| `kind` / `auto_complete_mode` | |
+| recurrence fields | type, interval, unit, weekdays JSONB, paused |
+| `weekday_time_slots` | JSONB |
+| email/agenda reminder fields | offsets, job ids, occurrence |
+| soft delete | |
+
+## `activity_logs`
+
+Occurrences by date:
+
+| Column | Notes |
+| --- | --- |
+| `activity_id` | |
+| `date` | TIMESTAMPTZ |
+| `completed` | |
+| `canceled_at` / `cancellation_reason` | |
+| soft delete | |
+
+Only activities with `kind = habit` accept logs. The API rejects completions and cancellations for `kind = block`.
+It also rejects dates before the creation day; those invalid historical logs are repaired in migration `000038`.
+
+`POST /:activityId/reset-history` (habits only) soft-deletes all `activity_logs` for the habit, sets `current_streak` / `longest_streak` / `completion_rate` to 0, and updates `activities.created_at` to the reset time so the history window matches a newly created habit.
+
+## `activity_images`
+
+Same blob pattern as task_images: store, pathname, etag, position, soft delete.
+
+Activities are unlimited for customers. Private abuse safeguards may return `CAPACITY_GUARD_REACHED`.

@@ -1,0 +1,75 @@
+---
+title: "Notebook"
+description: "Versioned note_groups, notes, ProseMirror note_documents, and images."
+---
+
+Source: `000006_notebook.up.sql`, `000063_document_schema_version.up.sql`.
+
+## Model
+
+```txt
+note_groups ──< notes ──1:1── note_documents
+                  │
+                  └── note_images
+```
+
+## `note_groups`
+
+| Column | Notes |
+| --- | --- |
+| `profile_id` / `created_by` | |
+| `name` / `description` / `color` | |
+| `position` | UI order |
+| soft delete | `deleted_at` |
+
+## `notes`
+
+Note metadata (not the full ProseMirror JSON).
+
+| Column | Type | Notes |
+| --- | --- | --- |
+| `id` | UUID PK | |
+| `profile_id` | UUID | |
+| `author_id` | UUID → users | |
+| `title` | TEXT | Default `''` |
+| `type` | TEXT | `note` \| `blog` \| `x_post` \| `x_thread` \| `report` \| `research` |
+| `status` | TEXT | `draft` \| `review` \| `ready` \| `published` |
+| `group_id` | UUID → note_groups | Nullable |
+| `date_key` | TEXT | Optional local day |
+| `migration_source_id` | TEXT | Legacy migrations |
+| `plain_text` / `excerpt` / `search_blob` | TEXT | Derived |
+| `word_count` / `character_count` | INT | Stats |
+| `pinned_at` / `archived_at` | TIMESTAMPTZ | Archive hides the note from the notebook's active list; detail and search can still show it. |
+| `created_at` / `updated_at` / `deleted_at` | | Soft-delete: `GET …/notes/trash` + `POST …/notes/:id/restore`. |
+
+**Indexes:** profile+updated, group, GIN search on `search_blob`.
+
+## `note_documents`
+
+| Column | Notes |
+| --- | --- |
+| `note_id` | CASCADE; unique active 1:1 |
+| `profile_id` | |
+| `content_json` | JSONB ProseMirror document |
+| `schema_version` | SMALLINT, default 1. Independent of editing `version`. |
+| `version` | Optimistic lock |
+| `search_text` | Server-derived plain-text projection |
+| `created_by` | |
+| soft delete | |
+
+API uncached: `GET/PUT …/notes/:id/document`.
+
+## `note_images`
+
+| Column | Notes |
+| --- | --- |
+| `note_id` | CASCADE |
+| `image_url` | NOT NULL |
+| blob fields | url, pathname, store, etag, content_type, size |
+| `created_by` | |
+| soft delete | |
+
+## Who writes
+
+- Go: `internal/notebook`
+- Front: `features/notebook`
