@@ -1,0 +1,237 @@
+---
+title: "UI patterns"
+description: "Forms, empty states, dialogs, loading and interactive lists."
+---
+
+## Forms
+
+**Compose first; StyleX last.** Prefer Astryx props and `Stack` / `HStack` /
+`VStack` / `Grid` / `FormLayout` before adding `stylex.create` in features.
+Use `InlineStack` only for a genuine inline cluster with an explicit
+`direction`. Pass raw styles from `stylex.create()` to DS `xstyle` props only
+for leftovers Astryx cannot express (responsive visibility, specialized track
+geometry, semantic native roots, or integrations). Register each leftover as
+an exact file + StyleX namespace in
+`packages/ui/scripts/stylex-layout-exceptions.json` with a reason and removal
+condition — never a domain wildcard. `stylex.props()` is only
+for native or third-party DOM owned by the current module; its result is never
+a valid `xstyle` value. DS components do not expose `className`, inline
+`style`, or generic `render` polymorphism. Use explicit `as`/`href` contracts.
+
+Astryx form controls own their label, description, required/optional state,
+disabled explanation, loading state, and validation status. Compose fields with
+`FormLayout`; do not wrap TextInput, TextArea, Selector, CheckboxInput, Switch,
+or another field-aware control in `Field`.
+
+Use `Field` only for a custom, native, or third-party control that does not
+render its own field UI:
+
+```tsx
+<Field label="Accent color" inputID="accent-color" description="Used in reports.">
+  <input id="accent-color" type="color" />
+</Field>
+```
+
+- Validation and submit belong to the **feature**.
+- Do not show validation when a create/edit form first opens. Validate a field
+  after blur, and surface server validation after a failed submission.
+- Visual controls come from the DS.
+- Field status messages come from the control or `Field` `status` prop, not an
+  adjacent error element.
+- Use `FormLayout` for structure and `GuidedSection` when a product flow is long.
+
+## Empty states
+
+- `EmptyState` from `empty` — the standard direct Astryx contract. Pass
+  `title`, optional `description`, `icon`, `actions`, and root `xstyle`.
+- `CalmEmpty` — a softer product composition with default localized copy.
+
+Include a short title, a description, and an optional primary CTA. Do not
+recreate Header, Media, Title, Description, or Content slots around it.
+
+## Dialogs
+
+| Case | Component |
+| --- | --- |
+| Modal form / detail | `dialog` |
+| Destructive confirmation | `alert-dialog` |
+| Side panel | controlled `sheet`; positioned Astryx Dialog for top/left/right, Astryx BottomSheet for bottom |
+
+Keep the primitive's focus trap and Escape-to-close.
+Studio create/edit dialogs also use light dismissal: clicking the backdrop
+closes the dialog while clicks inside nested pickers and selectors remain safe.
+Required flows and destructive confirmations do not use light dismissal.
+Their header and footer remain visible; only the form body scrolls after the
+dialog reaches its maximum height. Do not introduce a second nested scroller.
+
+Click menus use `dropdown-menu`. Pass Astryx Button props through `button`, prefer the `items` data contract for ordinary actions, and use direct Astryx item components only for stateful checkbox, radio, or submenu content. `MoreMenu` owns conventional overflow triggers. No Trigger/Content compatibility tree or native menu engine remains.
+
+Anchored pickers and color wells use `popover` with direct `content` and trigger children. Calendar event details use the explicit `AnchoredPopover` adapter because many detached chips share one content surface. Astryx owns portal positioning and dismissal; there is no compound or native popup path.
+
+## Loading
+
+| Case | Pattern |
+| --- | --- |
+| First page load | `skeleton` in the list/detail layout |
+| Action on a button | `spinner` / disabled state |
+| Success/error toast | `toast` from `@agata/ui/components/sonner` |
+
+In the app, `QueryBoundary` (product) governs query gates; the DS supplies the visuals.
+
+## Agent chat
+
+Use the domain-neutral Astryx primitives from `@agata/ui/components/chat` for
+layout, scrolling, messages, bubbles, metadata, the composer, and ordinary
+tool-call states. Use `@agata/ui/components/code-block` for standalone code and
+tool payloads. The full-page surface uses `balanced` density; the side panel
+uses `compact`. User messages use filled bubbles and assistant messages use
+full-width ghost bubbles.
+
+Product composition stays under `features/agent/domains/conversations/`.
+Feature-local adapters are allowed only where the generic primitives do not
+cover Agent behavior: Streamdown rendering for CJK, math, Mermaid, streaming
+carets, and fenced code; approval and denial checkpoints; result receipts and
+undo; Grok dictation and real-time voice; and the hidden native file picker.
+Do not recreate message, composer, scroll, or tool-call geometry in the
+feature.
+
+## Interactive lists
+
+Use the style helpers (`interactive-list-item-styles`) so hover/selected stay consistent with the app theme.
+
+Kanban and Sortable are the two registered dnd-kit integrations. Their public
+hosts use `as`, `xstyle`, and `dragHandle`; drag transforms and transitions are
+the only inline styles, and they stay inside the integration owner.
+
+## Command / search
+
+Use `Typeahead`, `Selector`, or the narrow popup `Combobox` adapter for entity selection. Global keyboard-driven launchers use Astryx `CommandPalette`; Agata has no generic shadcn-style `Command` tree.
+
+## Dates
+
+Use `DateInput` for ordinary single dates and `DateRangeInput` for immediate-apply ranges. Product date keys are `YYYY-MM-DD` business values. Use `DatePicker` only when a product-owned custom trigger is required. `DateRangePickerPanel` is reserved for FilterBar, where calendar selection remains a draft until **Submit** and **Clear** applies immediately.
+
+## Toasts
+
+```tsx
+import { toast } from '@agata/ui/components/sonner';
+
+toast.success(…);
+toast.error(…);
+```
+
+Short messages; the copy comes from the feature's i18n.
+
+## Compact density
+
+Authenticated product = **C2 compact operational** (see
+[Principles](/design-system/principles)). The measurable contract is: shell
+`appPageShell` padding 0.5rem / 0.75rem, toolbar controls 1.75rem (28px),
+rows padding-block 0.25rem–0.5rem, cards 0.5rem–0.75rem, local gaps
+0.5rem–0.75rem, and KPIs at `--font-size-3xl`–`--font-size-4xl`. Every chart or
+progress bar exposes its value on hover (`Tooltip` / `ChartTooltip`).
+
+Composition may vary by domain; density, typography, surface hierarchy and
+control sizes do not change on local preference.
+
+## Shared anatomy and hierarchy
+
+1. Tabs and breadcrumbs live in the shared shell.
+2. Main content uses `appPageShell`.
+3. Collections use a single `FilterBar`; they never duplicate a page header.
+4. Period/KPI collections (Finance, Goals, Pomodoro, Health routines/check-ins,
+   Nutrition pantry/shopping/meals/planner) stack: optional date/context
+   controller → **`CollectionBanner`** (Finance-style banner, not Card grids) →
+   `FilterBar` (title/scopes **and** primary actions) → content. With no
+   date/context or no aggregate, that layer is dropped.
+5. Details use a compact title/actions row and grouped sections; a hero is not
+   mandatory.
+6. Only one visually primary action per region.
+7. Loading, empty and error preserve the loaded screen's geometry.
+
+Surfaces: neutral background → `--radius-container` collection chrome → `--radius-page`
+cards/sections → the DS's existing overlays. Avoid nested decorative cards.
+
+Exceptions where warranted: Calendar and planners may use temporal chrome;
+period/KPI collections use optional date/context → `CollectionBanner` →
+`FilterBar` with actions; Insights may use an analytical header and `KpiCard`;
+Transactions may split a sidebar (month + net) from the feed with a 1.5rem gap;
+focus, chat and editor may take the full height. An exception stays local until
+it is documented as a reusable pattern.
+
+## Page header (collections)
+
+List screens do **not** use a separate `AppPageHeader` (no eyebrow/description duplicating the shell). Title, count and create actions live in `FilterBar` (`title` / `titleCount` / `headerActions`) alongside the scopes. A month/context controller above only appears when the surface needs it. Wrap the content in `appPageShell`. The `app-page.ts` tokens still apply to the shell, KPI grids and empty states.
+
+## Filter bar (`filter-bar`)
+
+One component for the header of any collection: `FilterBar` in
+`apps/app/shared/components/filter-bar.tsx`. It remains app-owned because its
+guidance copy comes from the product message catalog. Each surface enables only
+the slots it needs and inherits the accent from the surrounding
+`data-app-theme`.
+
+```tsx
+import { FilterBar } from '#/shared/components/filter-bar';
+
+<FilterBar
+  chips={chips}
+  facets={facets}
+  groupOptions={groupOptions}
+  groupValue={groupBy}
+  headerActions={<Button>Create task</Button>}
+  onClearAll={clearAll}
+  onGroupChange={setGroupBy}
+  onScopeChange={setScope}
+  onSearchChange={setQuery}
+  scopeId={scope}
+  scopes={scopes}
+  searchValue={query}
+  sortOptions={sortOptions}
+  title="Tasks"
+  titleCount={128}
+  views={views}
+/>;
+```
+
+Rules:
+
+- **Composable model.** Three rows when filters are applied: (1) `title + count · scopes (w-fit) · tools · ⋯ · headerActions`, (2) `search (/) · icon-only Filter · suggested · Sort: … · Group: … · views · mainTools`, (3) `Filters · chips · Clear all`. Search uses the same field chrome as other inputs and fills the remaining row; Filter and tools follow. Search is mandatory; every other slot is optional. Active chips never sit on the search row.
+- **Filters on demand.** The Filter icon opens a `Combobox` listing the dimensions that have no value yet (`facets`). Picking a dimension opens its value UI: back-to-category on its own row, then a full-width `Filter to…` search, then an `options` list by default (or `renderValue` for custom pickers such as `DateRangePickerPanel`). On apply, a dashed name+value chip lands on the chips row. Clicking the chip edits the value; the X removes it. Use `valueContentClassName` to widen the popover when needed. Segment tabs (`scopes`) are `width: fit-content` and sit next to the title, not in the search row.
+- **Actions.** Create/bookmark go in `headerActions` (top right). Other actions (`tools`, `secondaryAction` in the `⋯` menu) sit to the left of the primary button. `primaryAction` is an alias for `headerActions` when the latter is not passed. Sort / Group / views stay in the tools row (right); optional `mainTools` sit after views. With no `secondaryAction` the ellipsis is not rendered.
+- **No empty chips.** Chips only exist when filters are applied; `Clear all` appears with any active chip.
+- Empty slots take no space: with no `scopes`/`title` or no `facets`, the bar simply shrinks. The search field cannot be turned off.
+- The component's own copy lives in `Guidance.filterBar` (en/es); every other label is passed by the feature.
+- The accent of chips and active controls follows `data-app-theme` / `appTheme` in portals.
+
+Already in use by: Tasks, Notebook, Goals, Pomodoro, Activities, Health
+(routines / check-ins), Logs, Studios, Tags, Projects, Library (items /
+collections), Finance (transactions / recurring / budgets / savings / accounts /
+debts), Nutrition (inventory / recipes / shopping) and Feedback. All follow the
+same layout (title+actions · search+Filter · chips when applied). Calendar, finance
+month/planner, data-table toolbars and bulk/multi-select use their documented
+exceptions.
+
+Live variants in Storybook: **Data / Filter Bar**.
+
+## Persistent must-do bar
+
+Studio-level commitments use a single compact bar between the shared chrome and page content. It is not a dismissible banner: it stays mounted while at least one personal must-do is due or overdue.
+
+- Use a low warning tint, one-pixel separator, C2 rows, and no elevated card shadow.
+- Keep the task name and due state first; **Done** is primary, **Tomorrow** secondary, and **Stop keeping visible** tertiary.
+- Do not repeat the bar inside Today. Today may show a pin indicator and prioritize pinned untimed tasks in its existing focus rail.
+- On narrow screens, preserve the name and completion action before secondary controls.
+- Empty state is no UI: when the list is empty, the bar is absent.
+
+Canonical component: `features/tasks/public/task-attention-bar.tsx`. Canonical Paper frame: **Layout → App shell · daily must-dos**.
+
+## New screen checklist
+
+1. Components from the catalog
+2. No `AppPageHeader` — CTAs in the toolbar/filters
+3. Tokens / app theme
+4. Empty + loading + error
+5. Baseline a11y (labels, focus)
+6. Feature i18n authored in `en`, translated to `es`
+7. Storybook `Pages/…`: `Default`, `Empty`, `Loading`, `ErrorState` (DS mocks; Error = a `QueryErrorPanel`-style panel from `pages/_shared/page-error-state`)
