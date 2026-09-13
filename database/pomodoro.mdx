@@ -1,0 +1,38 @@
+---
+title: "Pomodoro"
+description: "pomodoro_timers, pomodoro_sessions, and shared project links."
+---
+
+Source: `000005_domains.up.sql`, `000023_normalize_shared_links.up.sql`.
+
+## `pomodoro_timers`
+
+| Column | Notes |
+| --- | --- |
+| `profile_id` / `created_by` | |
+| `name` / `description` / `color` | |
+| `work_minutes` | Default 25 |
+| `short_break_minutes` | Default 5 |
+| `long_break_minutes` | Default 15 |
+| `cycles_per_round` | Default 4 |
+| `auto_start_breaks` / `auto_start_work` | |
+| `sound_enabled` / `notifications_enabled` | |
+| `linked_task_id` | TEXT soft ref to task |
+| project link | `profile_project_links` (`entity_type = pomodoro_timer`); the API may expose a computed `linkedProjectId` |
+| `pinned_at` / `archived_at` / `deleted_at` | |
+
+## `pomodoro_sessions`
+
+| Column | Notes |
+| --- | --- |
+| `profile_id` / `user_id` / `timer_id` | |
+| `phase` | work/break… |
+| `cycle_index` | |
+| `planned_seconds` / `elapsed_seconds` | |
+| `completed` | |
+| `started_at` / `ended_at` | |
+| `date_key` | Local day of the session |
+
+**No** soft delete on sessions (execution history).
+
+Daily stats aggregate sessions for the **entire profile** by `date_key` (`profile_id` + `date_key`).

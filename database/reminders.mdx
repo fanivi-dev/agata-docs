@@ -1,0 +1,39 @@
+---
+title: "Reminders"
+description: "Shared-domain calendar reminders table."
+---
+
+## `reminders`
+
+| Column | Notes |
+| --- | --- |
+| `profile_id` / `created_by` | |
+| assignees | Table `reminder_assignees` (N); API `assignedTo: string[]` |
+| `title` / `description` | |
+| `date` | TIMESTAMPTZ |
+| `month` / `day` | Numeric parts |
+| `local_date_key` | Local day / start of the range |
+| `end_local_date_key` | Inclusive end if the reminder spans multiple days; `NULL` if it is a single day |
+| `all_day` | No time on the agenda when `TRUE` (`agenda_time` must be `NULL`) |
+| `email_each_day` | If `TRUE`, schedules the email relative to each day of the range (requires a multi-day range) |
+| `time_zone` | |
+| `agenda_time` / `agenda_time_zone` | |
+| `email_send_time` | |
+| `is_recurring` | Single day only (does not combine with a multi-day range) |
+| `notification_offsets` | JSONB |
+| `notify_day_before` / `notify_on_day` | |
+| `notification_job_ids` | JSONB |
+| `day_before_job_id` / `on_day_job_id` | |
+| soft delete | |
+
+Reminders are unlimited for customers. Private abuse safeguards may return `CAPACITY_GUARD_REACHED`.
+
+Constraints:
+
+- `end_local_date_key` is optional; if present, `>= local_date_key`.
+- Annual recurrence does not allow a multi-day range.
+- `email_each_day` only with a multi-day range.
+- `all_day = TRUE` ⇒ `agenda_time IS NULL`.
+- The API caps each range at 366 days.
+
+Related: [Notifications](/database/notifications) for the send queue.

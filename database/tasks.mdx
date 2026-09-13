@@ -1,0 +1,127 @@
+---
+title: "Tasks"
+description: "Schema for tasks and subpages, ProseMirror documents, comments, images, and counter triggers."
+---
+
+Sources: `000004_tasks.up.sql`, subtask promotion in `000041_task_subpages.up.sql`, and `000063_document_schema_version.up.sql`.
+
+## Model
+
+```txt
+profile_projects
+       │
+       ▼
+     tasks ──1:1── task_documents
+       │
+       ├── tasks (subpages; one level max)
+       ├── task_assignees (N members)
+       ├── task_attention_pins (N personal pins)
+       ├── task_comments
+       └── task_images
+```
+
+## `tasks`
+
+| Column | Type | Notes |
+| --- | --- | --- |
+| `id` | UUID PK | |
+| `profile_id` | UUID → profiles | |
+| `project_id` | UUID → profile_projects | **NOT NULL** — every task belongs to a project |
+| `parent_task_id` | UUID → tasks CASCADE | `NULL` on a root task; points to the parent on a subtask |
+| `subtask_position` | INT | Order within the parent; `NULL` on root tasks |
+| `name` | TEXT NOT NULL | Title (UI sometimes says “title”) |
+| `status` | TEXT | Default `todo` |
+| `priority` | TEXT | Default `medium` |
+| `due_date` | TIMESTAMPTZ | Instant |
+| `due_date_key` | TEXT | Local day `YYYY-MM-DD` |
+| `created_by` | UUID → users | |
+| `is_favorite` | BOOLEAN | Default false |
+| `completion_date` | TIMESTAMPTZ | |
+| `status_order` / `priority_order` | INT | Board sort order |
+| `reminder_time` | TEXT | |
+| `reminder_date` | TIMESTAMPTZ | |
+| `reminder_time_zone` | TEXT | |
+| `reminder_scheduled_job_id` | TEXT | Notification job |
+| `search_blob` | TEXT NOT NULL | Denormalized FTS: `name` + `task_documents.search_text` (`000022`). Updated on rename or document save. |
+| `created_at` / `updated_at` | TIMESTAMPTZ | |
+| `archived_at` / `deleted_at` | TIMESTAMPTZ | **Archive** = hide from active lists (inbox), not from project/tags/search/metrics. On transition to `done` or `canceled`, the API sets `archived_at` (`done` also sets `completion_date` if missing). Reopening clears archive (+ completion if leaving `done`). List API: default active-only; `includeArchived=true` includes both; `archived=true` archived only. Search includes archived by default. Backfill: `000019` / `000020`. |
+
+### `task_assignees` (since `000015`)
+
+| Column | Notes |
+| --- | --- |
+| `profile_id` / `task_id` / `user_id` | Unique `(task_id, user_id)` |
+| `created_at` | |
+
+API: `assignedTo: string[]` (replace-set on update; `[]` clears).
+
+### `task_attention_pins` (since `000062`)
+
+| Column | Notes |
+| --- | --- |
+| `id` | UUID primary key |
+| `profile_id` / `task_id` / `user_id` | Unique `(profile_id, task_id, user_id)`; task, profile, and user deletes cascade |
+| `created_at` | Stable tie-breaker for the profile attention bar |
+
+The table stores only personal attention intent. The task remains the source of truth for title, status, project, and due date. The API returns pins only when the task is open, active, and `due_date_key <= todayLocalDateKey`. Closing, archiving, soft-deleting, or clearing the due date removes pins; changing the due date preserves them.
+
+### Notable indexes
+
+- By project + deleted/status
+- Assignees by user + profile (`task_assignees`)
+- Profile + updated
+- `due_date_key`
+- Reminder date (active)
+- **GIN FTS** on `search_blob` (`idx_tasks_search`, config `simple`) — used by list `searchTerm` and `GET …/search`
+- **GIN trgm** on `name` (substring / typeahead legacy)
+- Recurring series unique removed in `000021`
+
+### Triggers
+
+Insert/update/delete on `tasks` keep `profile_projects.task_count` in sync (`sync_project_task_count_*`). Only root tasks count.
+
+`validate_task_parent` blocks self-references, grandchildren, and profile or project mismatches. `sync_subtask_project_from_parent` propagates a parent project change to its subtasks.
+
+## `task_documents`
+
+ProseMirror body **separate** from the cacheable detail.
+
+| Column | Type | Notes |
+| --- | --- | --- |
+| `id` | UUID PK | |
+| `task_id` | UUID → tasks CASCADE | Unique active 1:1 |
+| `profile_id` | UUID | |
+| `content_json` | JSONB | Canonical ProseMirror JSON (default empty `doc`) |
+| `schema_version` | SMALLINT | Document JSON schema (default 1). Independent of editing `version`. |
+| `version` | INT | Optimistic concurrency (default 1) |
+| `search_text` / `search_html` | TEXT | Server-derived plain body / legacy HTML projection |
+| `created_by` | UUID → users | |
+| `created_at` / `updated_at` / `deleted_at` | | |
+
+**GIN** full-text on `search_text` (body). Task list/search mostly uses `tasks.search_blob` (name + body). On `PUT …/document`, the API syncs `tasks.search_blob`.
+
+API: `GET/PUT …/document` uncached. See [Rich text guide](/api/guides/edit-rich-text).
+
+## `task_comments`
+
+| Column | Notes |
+| --- | --- |
+| `profile_id` / `task_id` | Scope |
+| `content` | TEXT NOT NULL |
+| `created_by` | |
+| soft delete | `deleted_at` |
+
+## Subtasks
+
+Since `000041`, the `task_subtasks` table no longer exists. Subtasks are rows in `tasks` and reuse the same document, comments, images, tags, and assignees. First-level collections filter `parent_task_id IS NULL`; global search may return both levels.
+
+The API keeps the `/:taskId/subtasks` endpoints as a relation and quick-create interface, but the returned `id` is also the canonical `taskId` of the subpage.
+
+## `task_images`
+
+Blob metadata + `position`; soft delete.
+
+## Who writes
+
+- Go: `internal/tasks`
+- Front: `features/tasks`, `services/tasks`

@@ -1,0 +1,95 @@
+---
+title: "Week plan"
+description: "week_plans and week_plan_items tables (migrations 000044 + 000048)."
+sidebarTitle: "Week plan"
+---
+
+Ephemeral per-week planning (Monday) and items per day. Migrations: `000044_week_plan`, `000048_week_plan_intent_links`, `000051_week_plan_series`.
+
+Conventions: soft delete, `date_key` / `week_start_date_key` as `TEXT` `YYYY-MM-DD` ([Conventions](/database/conventions)). Week: **Monday** (`weekStartsOn: 1`).
+
+Product: [Week plan](/apps/week-plan). Distinct from `nutrition_meal_plans` / slots.
+
+## `week_plans`
+
+Week header per profile.
+
+| Column | Notes |
+| --- | --- |
+| `id` | UUID PK |
+| `profile_id` | FK → `profiles` |
+| `week_start_date_key` | Monday `YYYY-MM-DD` |
+| `intent` | TEXT nullable — short weekly intent |
+| `created_by` | FK → `users` |
+| `created_at` / `updated_at` | TIMESTAMPTZ |
+| `deleted_at` | Soft delete |
+
+### Indexes
+
+| Index | Definition |
+| --- | --- |
+| `idx_week_plans_profile_week_active` | UNIQUE `(profile_id, week_start_date_key) WHERE deleted_at IS NULL` |
+
+## `week_plan_items`
+
+Plan items (one day of the week).
+
+| Column | Notes |
+| --- | --- |
+| `id` | UUID PK |
+| `plan_id` | FK → `week_plans` |
+| `profile_id` | FK → `profiles` (denormalized for scope) |
+| `date_key` | Local day `YYYY-MM-DD`. **NULL** = Later (no day, scoped to that week) |
+| `title` | TEXT NOT NULL |
+| `notes` | TEXT nullable (short) |
+| `done_at` | TIMESTAMPTZ nullable |
+| `sort_order` | INT NOT NULL DEFAULT 0 |
+| `calendar_reminder_id` | UUID nullable FK → `reminders` (`ON DELETE SET NULL`) |
+| `source_task_id` | UUID nullable FK → `tasks` (`ON DELETE SET NULL`) |
+| `source_activity_id` | UUID nullable FK → `activities` (`ON DELETE SET NULL`); XOR with task |
+| `series_id` | UUID nullable FK → `week_plan_series` (`ON DELETE SET NULL`) |
+| `created_by` | FK → `users` |
+| `created_at` / `updated_at` | TIMESTAMPTZ |
+| `deleted_at` | Soft delete |
+
+No time of their own, assignees, or plan limits. Time lives on the linked reminder. Weekly recurrence lives in `week_plan_series`.
+
+### Indexes
+
+| Index | Definition |
+| --- | --- |
+| `idx_week_plan_items_plan_date_sort` | `(plan_id, date_key, sort_order) WHERE deleted_at IS NULL` |
+| `idx_week_plan_items_profile` | `(profile_id) WHERE deleted_at IS NULL` |
+| `idx_week_plan_items_calendar_reminder` | `(calendar_reminder_id) WHERE … IS NOT NULL AND deleted_at IS NULL` |
+| `idx_week_plan_items_source_task` | `(source_task_id) WHERE … IS NOT NULL AND deleted_at IS NULL` |
+| `idx_week_plan_items_source_activity` | `(source_activity_id) WHERE … IS NOT NULL AND deleted_at IS NULL` |
+| `idx_week_plan_items_series_date` | UNIQUE `(series_id, date_key) WHERE series_id IS NOT NULL` (includes soft-deleted) |
+| `idx_week_plan_items_series` | `(series_id) WHERE … IS NOT NULL AND deleted_at IS NULL` |
+
+## `week_plan_series`
+
+Weekly template: one item per weekday (0 = Sunday … 6 = Saturday, same as Activities).
+
+| Column | Notes |
+| --- | --- |
+| `title` / `notes` | Snapshot when the series is created; editing an occurrence does not change it |
+| `weekday` | `SMALLINT` 0–6 |
+| `starts_on_week_start_date_key` | Monday `YYYY-MM-DD` of the week Repeat was turned on. Does not materialize earlier weeks |
+| `source_activity_id` | Habit inherited by materialized occurrences |
+| soft delete | `deleted_at` pauses the series (does not materialize future weeks) |
+
+### Indexes
+
+| Index | Definition |
+| --- | --- |
+| `idx_week_plan_series_profile` | `(profile_id) WHERE deleted_at IS NULL` |
+
+## Lifecycle
+
+- GET by-week **does not** insert a header; lazy creation happens on **POST** of the first item or **PATCH** of intent.
+- `POST /series/ensure` materializes occurrences of active series in that week if `weekStartDateKey >= starts_on_week_start_date_key` (may create header + items). A soft-deleted occurrence is not recreated.
+- A non-null `date_key` is projected into Calendar automatically. `calendar_reminder_id` is only optional time/email metadata; it does not control visibility.
+- Item delete = soft-delete (`deleted_at`). The product flow deletes any linked reminder and clears `calendar_reminder_id` first, so restore returns a clean dated item.
+- Moving an item to **Later** clears `date_key`, deletes any linked reminder, and clears `calendar_reminder_id`. If the item belongs to an active weekly series, the series is paused (`deleted_at`).
+- Moving a repeating item to another day updates `week_plan_series.weekday`. Already-materialized weeks are not rewritten. `POST /series/ensure` skips a week that already has any occurrence of that series (including a soft-deleted one).
+- Who writes: Go domain `internal/weekplan` + Next services `services/weekplan`.
