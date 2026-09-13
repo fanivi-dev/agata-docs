@@ -1,0 +1,67 @@
+---
+title: "Finance"
+description: "Accounts, transactions, savings, budgets, recurring rules, debts, and planner. `finance` section."
+---
+
+23 tools in four files (`finance.ts`, `finance_recurring.ts`, `finance_planning.ts`, `finance_admin.ts`), gated on **`finance`**.
+
+## Reads and transactions — `finance.ts`
+
+| Tool | Endpoint |
+| --- | --- |
+| `list_finance_accounts` | `GET .../accounts` |
+| `get_finance_account` | `GET .../accounts/:accountId`; includes `statementDay`, `isPrimary`, `maskLast4` |
+| `get_finance_net_worth` | `GET .../accounts/net-worth` |
+| `list_transactions` / `search_transactions` | transactions |
+| `get_finance_period_summary` | `GET .../analytics/period-summary` |
+| `list_budgets` | budgets with progress |
+| `list_debts` | open debts; `includeSettled: true` to include settled |
+| `get_finance_debt` | `GET .../debts/:debtId`; interest, minimum, payment day, `isSettled` / `settledOn` |
+| `list_finance_debt_payments` | `GET .../debts/:debtId/payments`; chronological, with `balanceAfterCents` |
+
+Writes with `always()`:
+
+- `create_transaction`, `update_transaction`
+- `add_debt_payment` (`fromAccountId` or the debt's `accountId`; creates a paid `expense`)
+- `settle_finance_debt` — marks the debt settled on `settledOn` (defaults to today) via `PATCH .../debts/:debtId`; `reopen: true` reopens it. Does not create any payment
+
+## Categories and recurring — `finance_recurring.ts`
+
+`list_recurring_rules`, `set_transaction_category`, `set_recurring_rule_category` (no approval). Categories = tags with `domainScope: "finance"`. Do not use `set_entity_tags` to categorize.
+
+## Planning — `finance_planning.ts`
+
+| Tool | Notes |
+| --- | --- |
+| `list_savings_goals` | Savings goals |
+| `add_savings_contribution` | **approval**; `amountCents` + `dateKey` + `toAccountId` (or the goal's `accountId`); creates a paid `income` unless a legacy `transactionId` |
+| `set_budget` | **approval**; upsert by name |
+| `get_finance_trend` | `GET .../analytics/monthly-trend` |
+| `search_finance` | `GET .../search?q=` (snippets; distinct from `search_transactions`) |
+
+`list_budgets` already includes progress (spent/remaining); there is no duplicate tool.
+
+## Dispatcher `manage_finance`
+
+| Resource | Ops |
+| --- | --- |
+| `accounts` | create, update (`isArchived` to archive) |
+| `budgets` | delete (**approval**) |
+| `recurringRules` | create, update, setActive, skipMonth |
+| `debts` | create, update (no hard-delete) |
+| `debtGroups` | list, create, update |
+| `savingsGoals` | create, update (no hard-delete) |
+| `plannerScenarios` | list, get, create, update, projection |
+| `plannerItems` | create, update, delete (**approval**) |
+
+## Money and dates
+
+Every amount is **integer cents**. Tool dates = `YYYY-MM-DD`; the handler converts to epoch-ms / RFC3339 according to the endpoint.
+
+## Bulk create — `finance_bulk.ts`
+
+| Tool | R/W | Endpoint |
+| --- | --- | --- |
+| `bulk_create_transactions` | W · **approval** | `POST /finance/.../transactions/bulk-create` |
+
+Always requires approval (`always()`). Cap 50, partial success `{ ids, errors }`. The HTTP body uses `occurredAtMs` like the unit create.

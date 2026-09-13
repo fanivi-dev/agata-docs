@@ -1,0 +1,58 @@
+---
+title: "Goals"
+description: "Goals and milestones. `goals` section."
+---
+
+9 tools, gated on the **`goals`** section.
+
+| Tool | R/W | Endpoint |
+| --- | --- | --- |
+| `list_goals` | R | `GET /goals/profiles/{ws}` |
+| `get_goal` | R | `GET /goals/profiles/{ws}/{goalId}` |
+| `create_goal` | W | `POST /goals/profiles/{ws}` |
+| `update_goal` | W | `PATCH .../{goalId}` |
+| `create_goal_milestone` | W | `POST .../{goalId}/milestones` |
+| `update_goal_milestone` | W | `PATCH .../{goalId}/milestones/{milestoneId}` |
+| `link_entity_to_goal` | W | `POST .../{goalId}/links` |
+| `list_goal_linkable_entities` | R | `GET .../linkable-entities` |
+
+## Progress modes
+
+A goal's progress is computed in three ways, according to its `progressMode`:
+
+| Mode | How it advances |
+| --- | --- |
+| `manual` | The percentage is set by hand with `manualProgressPercent`. |
+| `milestones` | Derived from completed milestones. |
+| `linked` | Derived from linked entities (tasks, activities…). |
+
+<Warning>
+`manualProgressPercent` **only takes effect in `manual` mode**. The `update_goal` description says so, and `get_goal` is how to check the mode before trying to set a percentage.
+</Warning>
+
+On goals in `milestones` mode, what moves progress is `update_goal_milestone` with `completed: true` — not `update_goal`.
+
+To link work: `list_goal_linkable_entities` then `link_entity_to_goal` (`linkType`: `task` | `activity` | `finance_goal`).
+
+## Risk
+
+`list_goals` and `get_goal` return `isAtRisk`, which the API computes by comparing progress with the target date. It requires a `todayDateKey`, which the handler derives from the session timezone instead of asking the model.
+
+`get_goal` also includes milestones with their status, trimmed to `id`, `title`, and `completed`.
+
+## Dispatcher `manage_goals` — `manage_goals.ts`
+
+| Resource | Ops |
+| --- | --- |
+| `milestones` | delete (**approval**) |
+| `links` | delete (**approval**) |
+
+Every `manage_goals` operation requires approval. Prefer `create_goal_milestone`, `link_entity_to_goal`, and `update_goal_milestone` for day-to-day use.
+
+## Bulk create — `goals_bulk.ts`
+
+| Tool | R/W | Endpoint |
+| --- | --- | --- |
+| `bulk_create_goals` | W | `POST /goals/.../bulk-create` |
+
+Cap 50, partial success `{ ids, errors }`.

@@ -1,0 +1,76 @@
+---
+title: "Library"
+description: "Watchlist and reading list. `library` section."
+---
+
+13 tools in two files, gated on the **`library`** section.
+
+## Items and subitems — `library.ts`
+
+| Tool | R/W | Endpoint |
+| --- | --- | --- |
+| `list_library_items` | R | `GET /library/profiles/{ws}/items` |
+| `fetch_link_metadata` | R | Next oEmbed (`services/library`) — no Go endpoint |
+| `create_library_item` | W | `POST .../items` |
+| `update_library_item` | W | `PATCH .../items/{itemId}` |
+| `soft_delete_library_item` | W · **approval** | `DELETE .../items/{itemId}` |
+| `restore_library_item` | W | `POST .../items/{itemId}/restore` |
+| `list_library_subitems` | R | `GET .../items/{itemId}/subitems` |
+| `create_library_subitem` | W | `POST .../items/{itemId}/subitems` |
+| `update_library_subitem` | W | `PATCH .../items/{itemId}/subitems/{subitemId}` |
+
+## Saving a link
+
+`create_library_item` is the tool for "save this for later" when the user pastes a URL. It requires `kind`, `primaryUrl`, and `title`.
+
+- **kind**: `video`, `music`, `series`, `movie`, `book`, `other`.
+- **status**: `saved` (default), `queued`, `in_progress`, `waiting_availability`, `finished`, `abandoned`.
+
+Marking something watched or read is `update_library_item` with `status: "finished"`.
+
+### oEmbed preview
+
+`fetch_link_metadata` calls the same Next helper that **Fetch Preview** uses in the UI (`fetchLibraryLinkMetadata`). If the URL supports it (YouTube, Vimeo, TikTok, SoundCloud, or others via noembed), it returns `title`, `thumbnailUrl`, `providerName`, `authorName`, and `suggestedKind`.
+
+Before creating, when the user only pastes a URL, prefer `fetch_link_metadata` for title and kind. In addition, `create_library_item` and `bulk_create_library_items` **auto-fill** `thumbnailUrl`, `oEmbedProvider`, `sourceLabel`, and `mediaCreatorName` from oEmbed when the agent does not send them — persistence still goes to Go as a remote URL (no Blob).
+
+## Subitems
+
+Subitems are episodes or chapters, with their own status. `create_library_subitem` adds one; `update_library_subitem` marks progress — so Eve can track "I'm on episode 4".
+
+## Collections — `library_collections.ts`
+
+| Tool | R/W | Endpoint |
+| --- | --- | --- |
+| `list_library_collections` | R | `GET .../collections` |
+| `add_item_to_collection` | W | `POST .../collections/{id}/items` |
+| `set_library_item_collections` | W | sync add/remove over collections |
+| `manage_library` | W | dispatcher |
+
+`set_library_item_collections` **replaces** the item's collection set.
+
+## Filtering limitation
+
+<Warning>
+`GET .../items` **only parses `cursor` and `limit`**: there is no server-side `kind`, `status`, or search filter. The tool accepts `kind` and `status`, but applies them **on the page already returned**.
+
+The tool description says so Eve does not present the result as an exhaustive filtered listing. Exposing a filter input that did nothing would be worse than not having one.
+</Warning>
+
+## Dispatcher `manage_library`
+
+| Resource | Ops |
+| --- | --- |
+| `collections` | create, update, removeItem, reorderItems |
+| `subitems` | reorder, delete (**approval**) |
+| `deletedItems` | list |
+
+Prefer narrow tools for add/set of collections and soft-delete/restore of items.
+
+## Bulk create — `library_bulk.ts`
+
+| Tool | R/W | Endpoint |
+| --- | --- | --- |
+| `bulk_create_library_items` | W | `POST /library/.../items/bulk-create` |
+
+Cap 50, partial success `{ ids, errors }`. Each item also auto-fills oEmbed preview when missing.

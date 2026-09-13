@@ -1,0 +1,71 @@
+---
+title: "Nutrition"
+description: "Meal log, recipes, plans, pantry, and shopping list. `nutrition` section."
+---
+
+19 tools in four files (`nutrition.ts`, `nutrition_meals.ts`, `nutrition_recipes.ts`, `nutrition_plans.ts`), gated on **`nutrition`**.
+
+## Meal log
+
+| Tool | R/W | Endpoint |
+| --- | --- | --- |
+| `list_meal_logs` | R | `GET .../meal-logs` |
+| `create_meal_log` | W | `POST .../meal-logs` |
+| `update_meal_log` | W | `PATCH .../meal-logs/{logId}` |
+| `soft_delete_meal_log` | W · **approval** | `DELETE .../meal-logs/{logId}` |
+
+`mealType`: `breakfast`, `lunch`, `dinner`, `snack`. One call per meal (`writeOnce`). `update_meal_log` only changes `mealType` / `title` / `dateKey`.
+
+## Recipes
+
+| Tool | R/W | Endpoint |
+| --- | --- | --- |
+| `list_recipes` | R | `GET .../recipes` |
+| `get_recipe` | R | `GET .../recipes/{recipeId}` |
+| `create_recipe` | W | `POST .../recipes` |
+| `update_recipe` | W | `PATCH .../recipes/{recipeId}` + `POST` of ingredients / steps / tools |
+
+A complete recipe is always saved in two phases within the same turn:
+
+1. `create_recipe` creates the header (name, description, and servings) and returns the ID.
+2. `update_recipe` takes that ID as `recipeId` and adds, in a single call, every ingredient, ordered step, and tool.
+
+The `update_recipe` arrays are additive: they keep existing rows. When creating a new recipe, send the full list after `create_recipe`; Eve must not stop after creating the header or send the user to manual editing.
+
+## Meal plans
+
+| Tool | R/W | Endpoint |
+| --- | --- | --- |
+| `get_meal_plan_week` | R | `GET .../meal-plans/by-week` + slots |
+| `plan_meal` | W | creates a plan if needed + `POST .../slots` |
+
+## Shopping and pantry
+
+| Tool | R/W | Notes |
+| --- | --- | --- |
+| `list_shopping_items` / `create_shopping_item` / `update_shopping_item` | R/W | Basic CRUD |
+| `toggle_shopping_item` | W | Preferred for marking `done` / `pending` |
+| `list_inventory` / `create_inventory_item` / `update_inventory_item` | R/W | Pantry |
+| `adjust_inventory_quantity` | W | Delta (±); does not go below 0 |
+
+## Dispatcher `manage_nutrition`
+
+`resource` ∈ `recipes` | `mealPlans` | `mealPlanSlots`; `operation` ∈ `list` | `get` | `create` | `update` | `activate` | `complete` | `delete`.
+
+`mealPlanSlots.delete` requires approval. Prefer narrow tools for recipes and `plan_meal`.
+
+<Note>
+**Meal log, pantry, and shopping list are different things.** "What did I eat today?" → meal logs. "Add milk" → shopping list.
+</Note>
+
+## Bulk create — `nutrition_bulk.ts`
+
+| Tool | R/W | Endpoint |
+| --- | --- | --- |
+| `bulk_create_meal_logs` | W | `POST .../meal-logs/bulk-create` |
+| `bulk_create_recipes` | W | `POST .../recipes/bulk-create` |
+| `bulk_create_shopping_items` | W | `POST .../shopping/items/bulk-create` |
+| `bulk_create_inventory_items` | W | `POST .../inventory/bulk-create` |
+| `bulk_create_meal_plans` | W | `POST .../meal-plans/bulk-create` |
+
+Cap 50, partial success `{ ids, errors }`.

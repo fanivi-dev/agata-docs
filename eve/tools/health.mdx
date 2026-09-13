@@ -1,0 +1,67 @@
+---
+title: "Health"
+description: "Daily check-ins, routines, and workout sessions. `health` section."
+---
+
+12 tools in two files, gated on the **`health`** section.
+
+## Check-ins and sessions — `health.ts`
+
+| Tool | R/W | Endpoint |
+| --- | --- | --- |
+| `list_health_checkins` | R | `GET /health/profiles/{ws}/checkins` |
+| `upsert_health_checkin` | W | `PUT .../checkins/upsert` |
+| `list_health_routines` | R | `GET .../routines` |
+| `list_health_sessions` | R | `GET .../sessions` |
+| `get_health_session` | R | `GET .../sessions/{sessionId}` |
+| `update_health_session` | W | `PATCH .../sessions/{sessionId}` |
+| `create_health_session` | W | `POST .../sessions` |
+
+## Check-ins
+
+A check-in is the daily wellbeing log: sleep quality, day rating, energy, mood, water, and notes. Ratings use a 1–3 scale.
+
+**`upsert_health_checkin` is indexed by `dateKey`**: calling it twice for the same day updates that entry instead of creating a second one. That makes it naturally idempotent, which is why it needs no approval despite being a write — a replay does not duplicate anything.
+
+## Workout sessions
+
+`create_health_session` records a workout already done: "I ran 5k today". `sportLabel` is the exercise type; `routineId` is optional and is resolved with `list_health_routines`.
+
+`PerformedAt` is a `time.Time` in Go, so the tool takes `performedOn` as a date key plus an optional `performedAtTime`, and the handler converts to RFC3339 (noon by default).
+
+## Routines and metrics — `health_routines.ts`
+
+| Tool | R/W | Endpoint |
+| --- | --- | --- |
+| `get_health_routine` | R | `GET .../routines/{routineId}` (+ blocks) |
+| `list_health_metrics` | R | `GET .../metrics/definitions` (+ optional entries) |
+| `log_health_metric` | W | `POST .../metrics/entries` |
+| `get_health_metric_trend` | R | definitions + entries (derived) |
+| `manage_health` | W | dispatcher |
+
+`list_health_metrics` without `metricId` lists definitions; with `metricId` it adds recent entries. `log_health_metric` is the day-to-day tool; creating/editing definitions goes through `manage_health`.
+
+## Dispatcher `manage_health`
+
+| Resource | Ops |
+| --- | --- |
+| `routines` | create, update |
+| `routineBlocks` | replace |
+| `metricDefinitions` | create, update |
+| `checkins` | delete (**approval**) |
+
+Prefer narrow tools for sessions, check-ins, and `log_health_metric`.
+
+<Warning>
+Eve logs what the user tells it. **It is not a clinician**: the prompt forbids interpreting these figures as medical advice or diagnosing anything.
+</Warning>
+
+## Bulk create — `health_bulk.ts`
+
+| Tool | R/W | Endpoint |
+| --- | --- | --- |
+| `bulk_create_health_checkins` | W | `POST .../checkins/bulk-create` |
+| `bulk_create_health_sessions` | W | `POST .../sessions/bulk-create` |
+| `bulk_create_health_metric_entries` | W | `POST .../metrics/entries/bulk-create` |
+
+Cap 50, partial success `{ ids, errors }`. For a single day prefer `upsert_health_checkin`.
