@@ -1,0 +1,195 @@
+---
+title: "Guide: call the API from Next.js"
+description: "Official monorepo pattern: server actions, session, and Cache Components."
+---
+
+The browser **never** talks to Go with the internal secret. Next is the BFF.
+
+## Official pattern
+
+```txt
+'use client' UI
+   │  calls action
+   ▼
+'use server' action  (features/... or services/...)
+   │  requireGoDomainServerAuth / requireGoWriteAccess
+   │  baseFetch / baseFetchMeta
+   ▼
+Go  /api/{domain}/profiles/{id}/...
+```
+
+## Steps in code
+
+### 1. Auth and section gate
+
+```ts
+const auth = await requireGoWriteAccess('tasks', profileId, 'work');
+// or requireGoDomainServerAuth(profileId, 'daily') for notebook
+```
+
+### 2. Go transport
+
+```ts
+const response = await baseFetchMeta<Task>(
+  `/api/tasks/profiles/${profileId}`,
+  auth.token,
+  { method: 'POST', body: JSON.stringify(input) }
+);
+return response.data;
+```
+
+### 3. Errors
+
+Propagate structured errors so the client can use `isStructuredApiErr` and upsell.
+
+### 4. Cache (Cache Components)
+
+The shared fetch **does not** decide cache. Each cacheable read declares it with `'use cache: remote'`.
+
+For reads **shareable across members of the same profile**:
+
+```txt
+RSC / public query
+   │  requireGoDomainServerAccess(profileId, section?)  (dynamic: cookies + membership)
+   ▼
+private function with 'use cache: remote'
+   │  cacheLife('hours')
+   │  cacheTag(tasksListTag(profileId))  // domain surface tag
+   │  baseFetchInternalMeta(path)          // Bearer CRON_SECRET — no user token
+   ▼
+Go API (GET profile-scoped; trusts membership to the BFF)
+```
+
+```ts
+import { baseFetchInternalMeta } from '#/services/shared/server/base-fetch';
+import { tasksListTag } from '#/services/shared/server/cache-tags';
+import { requireGoDomainServerAccess } from '#/shared/lib/server/require-go-domain-auth';
+
+export async function listTasksForProfile(
+  profileId: string,
+  params: ListTasksParams = {}
+) {
+  await requireGoDomainServerAccess(profileId, 'work');
+  // assignedToMe / createdByMe → path with user session (not shareable)
+  return listTasksQueryCached(profileId, params);
+}
+
+async function listTasksQueryCached(
+  profileId: string,
+  params: ListTasksParams
+) {
+  'use cache: remote';
+  cacheLife('hours');
+  cacheTag(tasksListTag(profileId));
+  return baseFetchInternalMeta(/* ... */);
+}
+```
+
+Rules:
+
+- Auth (`cookies`, `headers`, Better Auth) and **membership/section** **outside** the `'use cache: remote'` scope.
+- **Never** pass the session token as an argument of a shareable cached function: it becomes part of the cache key and blocks sharing + fragments Runtime Cache.
+- Inside the cached scope: only `baseFetchInternal` / `baseFetchInternalMeta` (server-to-server). Writes and user-scoped reads still use `baseFetch` / `baseFetchMeta` + session Bearer.
+- **Tags per surface** in every domain (list / trash / detail / resource). Helpers in `services/shared/server/cache-tags.ts`.
+- **Do not** use a single profile-wide cache tag in product queries: that purges trash and unrelated surfaces on every write.
+- **Do not put filters/cursors in tags** — the function args form the cache key.
+- **Do not put in Data Cache:** session/identity, permission checks, usage/audit, editor documents, streaming, writes, exports, `assignedToMe`/`createdByMe` filters (they use session or a per-`userId` key in phase 2).
+- **Writes:** `invalidateCache.*` → `updateTag` (immediate, read-your-own-writes) + a single `refresh()`. Prefer domain helpers or `tags([...])`. Use `{ refresh: false }` only in autosave/editor/blob. Do not use `revalidateTag` in product mutations.
+- Materialization with side effects (e.g. finance ensure-month) goes in a Server Action fired from the client, not in the RSC render.
+
+### 4b. App init and dynamic reads (`react.cache`)
+
+Three distinct layers:
+
+| Layer | What for | Where |
+| --- | --- | --- |
+| **Upstash Redis (Go)** | Hot payload of `GET /users/me/session` (`me:session:*`), identity and access | Go API |
+| **`react.cache` (request)** | Per-request dedupe of identity, session, access, usage, canView | Next BFF / RSC |
+| **`'use cache: remote'` (Data Cache)** | Cacheable product reads with `cacheTag` | Domain queries |
+
+Init warm path (one authenticated document):
+
+```txt
+requireBetterAuthIdentity()          // Better Auth cookie cache → token (react.cache)
+        │                            // (DB session only on cold bootstrap / Eve / token mint)
+getAppSession()                      // GET /users/me/session (Redis in Go; react.cache)
+        │  cold only: fresh BA session → POST bootstrap → retry session
+        ▼
+derive: user / prefs / profiles / access / canViewAuditLogs / settings
+        │
+profile layout Suspense
+        │  work-bootstrap?projection=shell  (sidebar counts + project/tag pickers)
+        ▼
+on demand (not every soft-nav):
+  · Profile Settings → loadProfileConfigDialogData (details+usage+invitations)
+  · Create Library Item / library routes → library picker tags+collections
+```
+
+- **Do not** call `GET /users/me` proactively on every request: the Redis session already brings user + profiles + permissions (+ `canViewAuditLogs`, `settings`).
+- **Do not** preload usage/invitations/library pickers in the global profile layout.
+- Shell/gate access: `profileAccessFromSession` / `resolveProfileAccess` (session first; Go `/access` only as fallback). Audit: `canViewAuditLogsFromSession` — no hop to `/audit-logs/access` on the cold path.
+- Client bootstrap (`GoUserBootstrapBoundary`) only if BA says signed-in and there is **no** SSR `initialSession`.
+
+Helpers: `shared/lib/server/app-session.ts`, `platform-bootstrap.ts`, `require-go-domain-auth.ts`.
+
+### 5. Invalidation
+
+```ts
+import { invalidateCache } from '#/services/shared/server/cache-invalidation';
+import {
+  projectsListTag,
+  tagsListTag,
+} from '#/services/shared/server/cache-tags';
+
+// Tasks: list + inbox calendar + search + profile Calendar agenda
+invalidateCache.taskWrite(profileId, taskId); // update due/status/reminder…
+invalidateCache.tasksSurfaces(profileId); // create / duplicate
+invalidateCache.tasksWrite(profileId, taskIds, { trash: true }); // bulk soft-delete
+invalidateCache.tasksAll(profileId); // list+trash+calendar+search+agenda
+
+// Helpers by domain (options → granular tags)
+// Several domains also invalidate calendarAgendaTag (tasks, projects,
+// activities, goals, library items, nutrition shopping, finance debts/savings).
+invalidateCache.projects(profileId, { projectId });
+invalidateCache.notebook(profileId, { noteId, groups: true });
+invalidateCache.finance(profileId, 'transaction'); // accounts+tx+search+summary+budgets+agenda
+invalidateCache.finance(profileId, 'recurring'); // rules+tx+…+agenda
+invalidateCache.finance(profileId, 'debts'); // +agenda
+invalidateCache.nutrition(profileId, 'recipes', { recipeId });
+invalidateCache.nutrition(profileId, 'shopping'); // +agenda
+invalidateCache.library(profileId, { itemId, trash: true }); // soft-delete/restore +agenda
+invalidateCache.health(profileId, { checkins: true });
+invalidateCache.tagList(profileId, { tagId });
+invalidateCache.calendar(profileId, { reminderId }); // reminders list+agenda
+
+// Multi-domain in a single refresh
+invalidateCache.tags([
+  projectsListTag(profileId),
+  tagsListTag(profileId),
+]);
+```
+
+## Security checklist
+
+- [ ] Action marked `'use server'`
+- [ ] Do not import secrets in client components
+- [ ] `profileId` validated on the server, not only from a blind client
+- [ ] Correct app section (`work`, `daily`, finance…)
+
+## Where to look
+
+| Need | Path |
+| --- | --- |
+| Better Auth identity | `shared/lib/server/better-auth-session.ts` |
+| App session (Redis init) | `shared/lib/server/app-session.ts`, `platform-bootstrap.ts` |
+| Domain access gates | `shared/lib/server/require-go-domain-auth.ts` |
+| Domain helpers | `shared/lib/server/go-domain-action-helpers.ts` |
+| Tags / invalidation | `services/shared/server/cache-tags.ts`, `cache-invalidation.ts` |
+| Go fetch | `services/shared/server/base-fetch.ts` |
+| Cached query example | `services/tasks/queries/list-tasks.ts` |
+
+## Next
+
+- [Create a task](/api/guides/create-a-task)
+- [Rich text](/api/guides/edit-rich-text)
+- [Frontend → Data](/frontend/data-and-server)
