@@ -1,0 +1,108 @@
+---
+title: "Layout and layers"
+description: "Target architecture and incremental migration of apps/api."
+---
+
+## Target architecture
+
+`apps/api` uses **bounded contexts** with light DDD, Ports and Adapters, and CQRS.
+Product modules under `internal/<context>/` follow the reference layout
+(`tags`, `blob`). Shared infra (`platform`, `delivery/http`, `bootstrap`,
+`seed`, cross-cutting email/QStash/Upstash adapters) is not a product
+bounded context.
+
+| Layer | Path | Responsibility | May depend on |
+| --- | --- | --- | --- |
+| Domain | `internal/<context>/domain/` | Aggregates, invariants, and business behavior | Standard library and value objects |
+| Contracts | `internal/<context>/contracts/` | Read models shared by ports and adapters | Stable data types of the context |
+| Application | `internal/<context>/application/` | Command/query handlers and orchestration | Domain + ports |
+| Inbound ports | `internal/<context>/ports/in/` | Contracts consumed by HTTP or another inbound adapter | Contract types and shared domain |
+| Outbound ports | `internal/<context>/ports/out/` | Capabilities required by application | Domain + contracts |
+| Outbound adapters | `internal/<context>/adapters/<technology>/` | Repository implementations and integrations | Ports, GORM/SDK, and persistence models |
+| HTTP delivery | `internal/delivery/http/` | Binding, parameters, status codes, and envelopes | Inbound ports |
+| Bootstrap | `internal/bootstrap/` | Composition root; creates adapters and injects ports | All concrete implementations |
+| Platform | `internal/platform/` | Config, DB, logger, and cross-cutting capabilities | Infrastructure |
+
+### Reference structure
+
+```txt
+internal/<context>/
+├── contracts/              # read models; no GORM
+├── domain/                 # aggregates and invariants; no Gin/GORM
+├── application/
+│   ├── commands.go         # write side
+│   └── queries.go          # read side and projections
+├── ports/
+│   ├── in/                 # CommandHandler, QueryHandler, DTOs
+│   └── out/                # required repositories and authorization
+└── adapters/
+    ├── postgres/           # GORM, SQL, and persistence mappings
+    └── billing/            # quota adapter when applicable
+```
+
+Do not create a layer by name if there is no real boundary. In particular:
+
+- `domain` does not import Gin, GORM, adapters, or HTTP DTOs.
+- `application` does not build connections or query GORM directly.
+- Repositories are defined as ports from the use-case needs.
+- Persistence types do not leave the PostgreSQL adapter.
+- `bootstrap` is the only place that knows interfaces and implementations at the same time.
+- `scripts/check-api-architecture.mjs` prevents already-migrated contexts
+  from reintroducing GORM or `adapters/` imports inside `application/`.
+
+## Request flow
+
+```txt
+HTTP (Gin)
+  → middleware (auth / logging)
+  → inbound port: CommandHandler or QueryHandler
+  → use case in application
+  → outbound port
+  → PostgreSQL adapter (GORM/SQL)
+  → PostgreSQL
+```
+
+## Pragmatic CQRS
+
+CQRS means separating the write execution model from the read model; it does not
+imply two databases or event sourcing.
+
+- **Commands** express intent (`CreateTagCommand`, `UpdateGoalCommand`) and
+  go through aggregates when a business invariant exists.
+- **Queries** produce read models optimized for the response and do not mutate state.
+- An `Application` may compose both ports to simplify HTTP wiring,
+  but implementations and dependencies remain separate.
+
+In large contexts (`tasks`, `billing`, `finance`, `profiles`) the
+`Application` may embed a `ports/out.Backend` implemented in
+`adapters/postgres` while `application/` stays free of GORM.
+
+## Naming
+
+| Element | Convention |
+| --- | --- |
+| Write intent | `<Verb><Aggregate>Command` |
+| Read parameters | `<Verb><Projection>Query` |
+| Use-case entry | `CommandHandler`, `QueryHandler` |
+| Required persistence | `CommandRepository`, `QueryRepository` |
+| Technical implementation | `<technology>.Repository` |
+| Context wiring | `NewApplication(...)` in the composition root |
+
+Avoid `Service`, `Manager`, `Helper`, or `Repository` without context when the name
+does not explain whether it reads, writes, orchestrates, or adapts a technology.
+
+## Migration status
+
+- **Complete (product):** `activities`, `billing`, `blob`, `calendar`,
+  `connections`, `feedback`, `finance`, `goals`, `health`, `library`,
+  `notebook`, `notifications`, `nutrition`, `pomodoro`, `projects`, `tags`,
+  `tasks`, `users`, `profiles`.
+- GORM models still shared in `internal/adapters/postgres/` for seed, cmd,
+  and cross-context joins; use-case persistence lives in each context’s adapter.
+
+## Additional conventions
+
+- Shared errors in `internal/shared/apperrors/`.
+- Architecture / integration tests under `internal/architecture` and `internal/integration` when they exist.
+- Domain-specific errors are translated to `AppError` in application.
+- Empty slices are initialized so they serialize as `[]`, not as `null`.

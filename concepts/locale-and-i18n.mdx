@@ -1,0 +1,28 @@
+---
+title: "Locale and i18n"
+description: "en/es, next-intl, and messages."
+---
+
+Agata supports **English** and **Spanish**.
+
+| Concept | Detail |
+| --- | --- |
+| Locales | `en` (default), `es` |
+| Library | `next-intl` |
+| Routing | **No URL prefix** (`localePrefix: 'never'`) |
+| Resolution | Cookie `NEXT_LOCALE` → `Accept-Language` → default `en` |
+| Preferences | `localeMode` (`auto` / `en` / `es`) on the account; syncs cookie + refresh |
+| Navigation | Helpers from `i18n/navigation` (`Link`, `useRouter`, …); paths without locale |
+
+## Where strings live
+
+All copy lives in `apps/app/messages/`:
+
+- Base: `messages/{locale}.json`
+- Per domain: `messages/{locale}/{Domain}/…` (the path is the `next-intl` namespace, e.g. `Tasks/common.json` → `Tasks.common`)
+
+When adding product copy, **en and es must stay in sync**.
+
+## In these docs
+
+The pages on this site are in **English**. The product itself is bilingual.

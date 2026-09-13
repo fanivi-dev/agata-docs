@@ -1,0 +1,47 @@
+---
+title: "Apps and shell"
+description: "How mini-apps live together inside the same studio."
+---
+
+Each **app** is a domain with its own screens and data, but they share:
+
+- The same account and session  
+- The same `profileId`  
+- The shell (sidebar, launcher, ⌘K)  
+- User preferences (light/dark theme, locale)  
+
+## Unified shell
+
+One chrome for everything. Domain “AppShell” files only adjust theme or minor slots.
+
+On desktop, the sidebar is full height and flush to the left edge.
+It can collapse to an icon rail (`--container-sidebar-icon`, 48px) with
+tooltips. Closed, the first header control expands it; open, the control
+lives to the right of the studio picker. The right edge of the sidebar
+also toggles collapse. On mobile it remains a drawer.
+
+## Themes
+
+When you enter finance, health, etc., the UI can tint (`data-app-theme`). That is design system, not a different brand.
+
+→ [App themes](/design-system/app-themes)
+
+## Quick capture
+
+Several apps let you create something **without leaving** the current context (task, note, check-in, expense…).
+
+## Mental map
+
+```txt
+Shell sidebar
+ Today → Week plan → Calendar → Tasks → Notebook → Activities
+ — Nutrition, Finance, Health, Library, Pomodoro, Goals, Agent
+```
+
+**Tasks** nests Tasks, Focus, Insights, and Trash. **Notebook** nests
+Notebook, Insights, and Trash. Projects and tags stay
+reachable from those pages and from ⌘K.
+
+**Today** (`/today`) is the studio home. **Agent** is always-on like Tasks. Audit logs live in the user menu, not in the sidebar.
+
+User-level appearance, locale, and regional settings open from the avatar menu → **Preferences** (or <kbd>⌘</kbd>/<kbd>Ctrl</kbd> + <kbd>,</kbd>).

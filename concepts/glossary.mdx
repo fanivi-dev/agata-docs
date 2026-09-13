@@ -1,0 +1,53 @@
+---
+title: "Glossary"
+description: "Agata product terms in one place."
+---
+
+| Term | Short definition |
+| --- | --- |
+| **Agata** | Multi-app studio product |
+| **Studio** | Tenancy unit and public actor (`handle`). Person-owned or Organization-owned. Studio apps: `/studios/:handle`. Table `profiles`. Formerly **workspace** |
+| **Organization** | Company account that owns people, Teams, and zero or more Studios. Tables `organizations` / `organization_members`. Not a Studio, not followable. Billing stays on the Studio |
+| **Team** | Organization permission shortcut. Assigns people into Studios (`organization_teams`, `profile_team_assignments`). Not public, not followable |
+| **Follow** | One-way audience. Does not grant membership or a seat |
+| **Handle** | Unique slug of the studio name. Studio apps: `/studios/:handle`. Public page: `/@handle` (404 while private). Stays in lockstep with the name |
+| **App / mini-app** | Domain with its own routes (tasks, finance, health…) |
+| **Shell** | Shared chrome: sidebar, launcher, ⌘K, breadcrumbs |
+| **Today** | Studio home |
+| **Tasks / inbox** | Task inbox (not the studio home) |
+| **Project** | Work container; tasks belong to a project |
+| **Tag** | Reusable studio label |
+| **Activity** | Recurring / operational activity (distinct from a one-off task) |
+| **Notebook / note** | Rich-text writing and note metadata |
+| **Week plan** | Ephemeral Mon–Sun planning (`/week-plan`); optionally a reminder in Calendar; not an Activity, Goal, or the Nutrition meal planner |
+| **Document** | ProseMirror body (task or note), versioned, own endpoint |
+| **Quick capture** | Create something without leaving the current screen |
+| **Plan** | Free (`base`) or Pro — usage limits of the **studio**. Extra members and AI packs scale Pro. Retired Stripe plan id `team` is not a Team product |
+| **Plan limit** | Plan cap. **Soft** (tasks/projects/…): existing data stays; creates are blocked. **Hard** (members / owned studios): you must free capacity |
+| **Soft limit** | After a downgrade/cancel, `used > limit` on content: R/W of existing items + create block + banner |
+| **Section / app enablement** | Which apps are active in a studio |
+| **Audit log** | Action history (owner/admin) |
+| **Connection** | Bidirectional person link used to speed member invites. Not Follow |
+| **Explore** | Platform list of recommended public studios (`/explore`). Composes existing public/follow reads; not a ranking product |
+| **App theme** | Visual tint per area (`today`, `tasks`, `finance`, `weekplan`…) |
+
+## IDs you will see in URLs
+
+| Segment | Example |
+| --- | --- |
+| `handle` | Unique slug in Studio apps (`/studios/:handle`) and public `/@handle` |
+| `profileId` | Studio UUID on the API (`/api/profiles/:profileId`). Renamed from `workspaceId` |
+| `@handle` | Public studio slug (browser `/@handle`; RSC `/p/[handle]`) |
+| `/@handle/recipes/:id` | Shared recipe |
+| `/@handle/plans/:id` | Shared meal plan |
+| `/@handle/library/:id` | Shared library item |
+| `/@handle/collections/:id` | Shared library collection |
+| `/@handle/goals/:id` | Shared goal |
+| `/@handle/meals/:dateKey` | Shared meal day |
+| `taskId` / `projectId` / `noteId` | Entity UUID |
+| `dateKey` | Local day `YYYY-MM-DD` (query, field, or meal-day path) |
+
+## Related
+
+- [Product model](/concepts/product-model)  
+- [Plans](/platform/billing-plans)  
