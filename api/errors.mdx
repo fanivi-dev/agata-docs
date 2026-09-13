@@ -1,0 +1,219 @@
+---
+title: "Errors"
+description: "API error codes, JSON bodies, and how the client should react."
+---
+
+Good error docs prevent support tickets. Here are Agata's stable codes and copy-paste examples.
+
+## Error shape
+
+```json
+{
+  "error": {
+    "code": "PLAN_LIMIT",
+    "message": "Task limit reached for this profile",
+    "limit_key": "members_per_profile",
+    "limit": 150,
+    "required_plan": "pro",
+    "resolution": "upgrade_plan"
+  },
+  "request_id": "9f3c2a1b-…"
+}
+```
+
+| Field | When | Client use |
+| --- | --- | --- |
+| `error.code` | Whenever there is an AppError | UX / i18n branch |
+| `error.message` | Almost always | Readable fallback (may not be i18n) |
+| `error.limit_key` | Plan limits | Map to billing copy |
+| `error.limit` | Plan limits | Show the cap |
+| `error.required_plan` | Plan limits | Upgrade CTA |
+| `error.resolution` | Plan limits | `upgrade_plan` or `purchase_addon` |
+| `error.addon_key` | Expandable limits | `extra_members` or `ai_credit_packs` |
+| `request_id` | Always | Support / logs |
+
+Go type: `dto.ErrorResponse` + `apperrors.AppError`.
+
+## Stable codes
+
+Source: `apps/api/internal/shared/apperrors/errors.go`.
+
+| `code` | Typical HTTP | Meaning | What to do |
+| --- | --- | --- |
+| `UNAUTHORIZED` | 401 | No identity / invalid secret | Re-login; check the server secret |
+| `FORBIDDEN` | 403 | No permission (role, section, membership) | Do not retry the same way; access UI |
+| `NOT_FOUND` | 404 | Resource missing or not visible | Empty state / soft-delete |
+| `VALIDATION_ERROR` | 400 | Invalid input | Show form fields |
+| `DUPLICATE_RESOURCE` | 409 | Conflict / duplicate | Uniqueness message |
+| `PLAN_LIMIT` | 402/403/429 depending on the route* | Plan cap | Upsell + `limit_key` |
+| `RATE_LIMIT_EXCEEDED` | 429 | HTTP rate limit | Backoff + `Retry-After`; do not confuse with `PLAN_LIMIT` |
+| `INTERNAL_SERVER_ERROR` | 500 | Unexpected failure | Generic toast + log `request_id` |
+
+\*The exact HTTP status is set by the handler; the **code** is the stable signal for the TypeScript client (`isStructuredApiErr`).
+
+### Rate limit (reads and writes)
+
+The API rate-limits authenticated requests per user with fixed counters in Upstash Redis (separate buckets):
+
+| Type | Methods | Per minute | Per hour | Env |
+| --- | ---: | ---: | ---: | --- |
+| Writes | `POST` / `PATCH` / `PUT` / `DELETE` | 90 | 1200 | `RATE_LIMIT_WRITES_PER_*` |
+| Reads | `GET` / `HEAD` | 300 | 5000 | `RATE_LIMIT_READS_PER_*` |
+
+- Enabled when `UPSTASH_REDIS_REST_URL` + `UPSTASH_REDIS_REST_TOKEN` are configured (or `RATE_LIMIT_ENABLED=true`). Force off: `RATE_LIMIT_ENABLED=false`.
+- Health and `/api/internal/*` (cron) do not count.
+- If Redis fails or is not configured, the middleware **fails open** (lets the request through) and logs a warn.
+- The response includes a `Retry-After` header (seconds until the window ends).
+
+This is not a plan cap: `PLAN_LIMIT` is billing/entitlements; `RATE_LIMIT_EXCEEDED` is anti-abuse.
+
+## Examples by scenario
+
+### 401 — secret or session
+
+```json
+{
+  "error": { "message": "unauthorized" },
+  "request_id": "…"
+}
+```
+
+or
+
+```json
+{
+  "error": { "message": "invalid or expired session" },
+  "request_id": "…"
+}
+```
+
+**Action:** refresh the Better Auth session; on the server, do not cache dead tokens.
+
+### 400 — validation
+
+```json
+{
+  "error": {
+    "code": "VALIDATION_ERROR",
+    "message": "title is required"
+  },
+  "request_id": "…"
+}
+```
+
+**Action:** highlight the field; do not retry blindly.
+
+### Plan limit
+
+```json
+{
+  "error": {
+    "code": "PLAN_LIMIT",
+    "message": "…",
+    "limit_key": "members_per_profile",
+    "limit": 150,
+    "required_plan": "pro",
+    "resolution": "upgrade_plan"
+  },
+  "request_id": "…"
+}
+```
+
+**Known customer-facing keys** (`apps/app/shared/utils/plan-limits/keys.ts` plus owner cap):
+
+- `members_per_profile`
+- `profiles_per_owner`
+- `agent_credits_per_month`
+
+**Action:** if `resolution` is `upgrade_plan`, open the upsell with the required plan.
+If it is `purchase_addon`, send the owner to Billing → Extras using `addon_key`;
+members without permission must contact the owner.
+
+For example, when Agent credits run out on a paid plan:
+
+```json
+{
+  "error": {
+    "code": "PLAN_LIMIT",
+    "message": "Agent credits exhausted for this profile",
+    "limit_key": "agent_credits_per_month",
+    "limit": 3500,
+    "required_plan": "pro",
+    "resolution": "purchase_addon",
+    "addon_key": "ai_credit_packs"
+  },
+  "request_id": "…"
+}
+```
+
+### 429 — rate limit
+
+```json
+{
+  "error": {
+    "code": "RATE_LIMIT_EXCEEDED",
+    "message": "Too many requests. Try again later."
+  },
+  "request_id": "…"
+}
+```
+
+Header: `Retry-After: <seconds>`.
+
+**Action:** toast with the mapped message; wait / backoff. Do not retry in a loop (e.g. autosave).
+
+### 404
+
+```json
+{
+  "error": {
+    "code": "NOT_FOUND",
+    "message": "task not found"
+  },
+  "request_id": "…"
+}
+```
+
+### 409 — conflict / document version
+
+On rich text, a stale `expectedVersion` can return a conflict. Reload the document (`GET …/document`) and retry with the new version.
+
+## Handling in TypeScript (monorepo pattern)
+
+```ts
+import { isStructuredApiErr } from '#/shared/utils/error-handler';
+
+try {
+  await createTaskAction(profileId, input);
+} catch (err) {
+  if (isStructuredApiErr(err)) {
+    if (err.code === 'PLAN_LIMIT') {
+      // err.resolution === 'purchase_addon'
+      //   ? openBillingAddons(err.addon_key)
+      //   : openUpsell(err.limit_key, err.required_plan)
+      return;
+    }
+    // toast(err.message) or t(`errors.${err.code}`)
+    return;
+  }
+  // network / unknown
+}
+```
+
+## Client best practices
+
+1. **Always** log `request_id` on 5xx errors.
+2. Do not show stacks or SQL messages to the user.
+3. Distinguish `PLAN_LIMIT` from `VALIDATION_ERROR` (different UX).
+4. Retry only on idempotent 429/5xx, with backoff.
+5. Do not retry 401/403 in a loop — break the session or show access denied.
+
+## Request ID
+
+The middleware assigns or propagates:
+
+```http
+X-Request-ID: <uuid>
+```
+
+Include it in bug reports: “create transaction failed, request_id=…”.

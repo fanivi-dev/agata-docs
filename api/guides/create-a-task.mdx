@@ -1,0 +1,97 @@
+---
+title: "Guide: create a task"
+description: "Real flow to create a task in a profile and load its document."
+---
+
+Use case: **capture work** in the profile inbox. This is the “hello world” of the work domain.
+
+## What you will build
+
+1. Create a task with a title.
+2. (Optional) read the detail.
+3. Load / save the rich-text body through the **document** endpoint (uncached).
+
+## Prerequisites
+
+- Better Auth session Bearer ([Authentication](/api/authentication))
+- A `profileId` where the user is a member
+- Base: `http://localhost:8080/api`
+
+## 1. Create the task
+
+```bash
+curl -sS -X POST "$BASE/tasks/profiles/$WS" \
+  -H "Authorization: Bearer $SESSION" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "title": "Prepare API demo"
+  }' | jq
+```
+
+Conceptual response:
+
+```json
+{
+  "data": {
+    "id": "task-uuid",
+    "title": "Prepare API demo",
+    "profile_id": "…"
+  },
+  "request_id": "…"
+}
+```
+
+Task creates are not a customer-facing plan cap. Member and AI credits still return `PLAN_LIMIT` (`members_per_profile`, `agent_credits_per_month`). Abuse safeguards on content return `CAPACITY_GUARD_REACHED` with no limit metadata.
+
+## 2. Detail vs document
+
+| Endpoint | Includes document body? |
+| --- | --- |
+| Task detail | **No** (empty shell / omitted on purpose) |
+| `GET …/tasks/.../:taskId/document` | **Yes**, always fresh |
+
+```bash
+# Document (editor)
+curl -sS "$BASE/tasks/profiles/$WS/$TASK_ID/document" \
+  -H "Authorization: Bearer $SESSION" | jq
+```
+
+## 3. Save document (optimistic version)
+
+```bash
+curl -sS -X PUT "$BASE/tasks/profiles/$WS/$TASK_ID/document" \
+  -H "Authorization: Bearer $SESSION" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "contentJson": { "type": "doc", "content": [] },
+    "schemaVersion": 1,
+    "expectedVersion": 1
+  }' | jq
+```
+
+In the app, this goes through `updateTaskDocumentAction` without contaminating the detail cache.
+
+## From Next.js
+
+```ts
+// conceptual
+await createTaskAction(profileId, { title: 'Prepare API demo' });
+// editor:
+await getTaskDocumentAction(profileId, taskId);
+await updateTaskDocumentAction(profileId, taskId, { contentJson, expectedVersion });
+```
+
+## Common errors
+
+| Symptom | Cause | Fix |
+| --- | --- | --- |
+| 401 | Secret or session | Check headers |
+| PLAN_LIMIT | Member or AI cap | Upgrade / contact the owner |
+| Empty document when opening cached detail | Expected | Use GET document |
+| Version conflict | Concurrent edit | Re-fetch document |
+
+## Related
+
+- Product: [Tasks](/workspace/tasks)
+- DB: [Tasks tables](/database/tasks)
+- OpenAPI: tag **Tasks**
