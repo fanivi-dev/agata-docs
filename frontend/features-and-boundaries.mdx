@@ -1,0 +1,90 @@
+---
+title: "Features and boundaries"
+description: "How domains are organized in features/* and the enforceable public/ rule."
+---
+
+Each product lives under `apps/app/features/<product>/`.
+
+<Warning>
+  **Draft** tab: the architecture may still evolve. The ownership and
+  `public/` rules on this page match the code and
+  `scripts/check-feature-boundaries.mjs`.
+</Warning>
+
+## Canonical feature layout
+
+```txt
+features/<product>/
+├── domains/          # screens and UI by subdomain
+├── shared/           # feature-local only (hooks, lib, quick-capture, forms)
+└── public/           # stable API toward other features / shared/ (if there are consumers)
+```
+
+- There is **no** `features/*/services/` — I/O toward Go lives in [`apps/app/services`](/frontend/data-and-server).
+- i18n copy: `apps/app/messages/{en,es}/` by domain (not under the feature).
+- `public/` is required only if there are external consumers (other features or `shared/`). Do not create an empty `public/` “just in case”.
+- For reuse inside a complex cluster use `domains/<domain>/_common/`. `domains/shared/` directories **no longer exist**: the legacy ones were migrated to `features/<feature>/shared/` and the checker fails on any new `domains/shared/`.
+
+## Feature roles
+
+The role describes ownership during design and review; it does not add another folder level.
+
+| Role | Examples | Responsibility |
+| --- | --- | --- |
+| Domain owner | `tasks`, `calendar`, `finance`, `health` | UI and vocabulary of one domain; cross-feature API only through `public/` |
+| Composition | `today`, `agent` | Combines services and public APIs from several domains into a named experience |
+| Platform | `platform`, `profiles`, `billing`, `audit-logs`, `feedback`, `users` | Identity, access, profile, administration, or support |
+| Public surface | `marketing` | Unauthenticated presentation; does not absorb internals of the authenticated product |
+
+A domain owner does not import a composition feature. A composition feature may call `services/<domain>` and use `features/<domain>/public/*`.
+
+## Enforceable rule (`public/`)
+
+| Origin | Destination | Rule |
+| --- | --- | --- |
+| `features/A` | `features/B` | Only `#/features/B/public/**` |
+| `shared/` | `features/*` | Only `#/features/<name>/public/**` |
+| `services/` | `features/*` or `app/*` | Forbidden; the client-safe contract belongs in `services/<domain>/types.ts` |
+| `app/` | `features/*` | May deep-import internals (route composition) |
+| Same feature | same feature | Internals OK |
+
+Checker: `scripts/check-feature-boundaries.mjs` (via `bun run lint:architecture`, together with the Go checker). The allowlist must stay empty.
+
+## Work-cluster ownership
+
+| Capability | Owning feature | Exposure |
+| --- | --- | --- |
+| Statuses, priorities, create-task, labels/badges, click-to-edit, faceted-filter, task/tag quick-capture | `tasks` | `tasks/public/*` |
+| create-project, project quick-capture, project UI types | `projects` | `projects/public/*` |
+| create-activity, activity-kind, activity quick-capture | `activities` | `activities/public/*` |
+| CreateReminderForm, reminder helpers, calendar quick-capture | `calendar` | `calendar/public/*` |
+| Profile settings/team pages, platform-core types | `profiles` | `profiles/public/*` |
+| Guards / selector / allowed apps (platform chrome) | `platform` | `platform/public/studios` |
+
+Shell (`shared/layout`, quick-capture registry, providers) imports create/quick-capture/tabs only via each feature’s `public/`.
+
+## Current features
+
+| Feature | Surface |
+| --- | --- |
+| `tasks`, `projects`, `tags`, `activities`, `calendar` | Work |
+| `notebook` | Daily |
+| `goals`, `finance`, `library`, `nutrition`, `health`, `pomodoro` | Apps |
+| `billing`, `profiles`, `platform` | Platform |
+| `today`, `agent` | Cross-domain composition with explicit ownership |
+| `audit-logs`, `feedback`, `users`, `marketing` | Support / chrome / marketing |
+
+Canonical layout also in legacy features (`audit-logs`, `billing`, `marketing`, `notebook`, `feedback`): `domains/` + `shared/` + `public/` when applicable. `users` is thin (`public/` + `shared/`).
+
+## Ownership rules
+
+| Yes | No |
+| --- | --- |
+| Domain UI and logic in its feature | Project/activity forms under `tasks` |
+| Copy in `messages/{locale}/{Domain}/` | Local messages in the feature |
+| Export only via `public/*` to other features / `shared/` | Deep cross-imports between features |
+| Prefer direct imports to the file | Giant `index.ts` re-export barrels |
+
+## App `shared/`
+
+Only UI and utilities that are **truly** cross-product (shell, breadcrumbs, query boundary, command registry). If it talks about a specific domain, it belongs to the feature — and the shell consumes it through `public/`.

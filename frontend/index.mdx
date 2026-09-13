@@ -1,0 +1,25 @@
+---
+title: "Frontend (draft)"
+description: "Architecture of apps/app aligned with the code; this tab is still marked as draft."
+---
+
+<Warning>
+  This tab is a **draft**: the architecture of `apps/app` may still
+  evolve. The boundaries and data/server pages describe the current
+  model (features `public/`, services in `apps/app/services`, checker in CI) —
+  not aspirational claims.
+</Warning>
+
+For stable product and UI work:
+
+- **[General](/getting-started/overview)** — what the product does
+- **[Design system](/design-system)** — components and tokens
+- **[API](/api)** — contract with Go
+
+In this tab:
+
+- [App structure](/frontend/app-structure)
+- [Features and boundaries](/frontend/features-and-boundaries)
+- [Data and server](/frontend/data-and-server)
+
+Verification: `bun run lint:architecture` (Go + feature boundaries) and `bun run type-check`.

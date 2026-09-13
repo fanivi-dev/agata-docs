@@ -1,0 +1,72 @@
+---
+title: "Data and server"
+description: "Go-backed services, types.ts, session, hooks, and post-mutation cache."
+---
+
+## Typical flow
+
+```txt
+UI (features/* or app RSC)
+  → apps/app/services/<domain>/{actions,queries}
+    → requireBetterAuthSession / go-auth helpers
+      → HTTP to Go API
+```
+
+Single services tree: `apps/app/services`.
+
+Each domain owns only:
+
+```txt
+services/<domain>/
+├── actions/     # server actions (writes)
+├── queries/     # server queries / reads
+└── types.ts     # types imported by UI/client (if applicable)
+```
+
+Aggregators: import `{domain}Queries` from `#/services/{domain}/queries` and `{domain}Actions` from `#/services/{domain}/actions` (e.g. `taskQueries.getTasks`, `tasksActions.updateTask`).
+
+There is **no** `features/*/services/`, nor `client.ts` / `cache.ts` / `ui-types.ts` at the domain root.
+
+The dependency is unidirectional: `app/features/shared → services → Go`. Modules under `services/` must not import `features/` or `app/`; `scripts/check-feature-boundaries.mjs` enforces this. If a client-safe type, enum, or guard is needed by both a query/action and the UI, its source of truth lives in `services/<domain>/types.ts`.
+
+## types.ts
+
+- Domains whose types are imported by UI/client expose those types from `services/<domain>/types.ts`.
+- Shapes used only inside a query may stay colocated in that file.
+- Features/public may re-export service types (e.g. `projects/public/types`) but the typed source of truth for the Go↔UI contract is `services/*/types.ts`.
+
+## Session
+
+Helper: `shared/lib/server/better-auth-session.ts` (`requireBetterAuthSession`).
+
+Only in **server** code. Never from `'use client'`.
+
+## Client hooks
+
+- Prefer `useCurrentUser` (via `useCurrentUserContext` / `users/public`) and Go-backed actions.
+- Gate queries with auth ready: while loading, **`undefined`**, not empty arrays.
+- Consistent loading: `QueryBoundary` (`shared/components/query-boundary.tsx`).
+
+## Errors
+
+- Structured API errors: `isStructuredApiErr` / patterns in `apps/app/shared/utils/error-handler.ts`.
+- Plan limits: keys in `apps/app/shared/utils/plan-limits/` + i18n copy + upsell UI (`billing/public`).
+
+## Post-mutation cache
+
+Mandatory pattern after writes in server actions:
+
+1. `invalidateCache.*` / `updateTag` (helpers in `services/shared/server/cache-invalidation.ts`)
+2. `refresh()` from `next/cache` (included by default in those helpers)
+
+**Do not** use `router.refresh()` in features/hooks to “fix” the RSC tree after a mutation — that lives in the action.
+
+Documented exception: editor/blob surfaces that pass `{ refresh: false }` so the editor is not remounted; the client patches local state.
+
+## What not to do
+
+- Heavy business logic in `page.tsx`
+- `useCallback` / `React.memo` as a default optimization
+- Importing `server-only` modules in client components
+- Importing `features/` or `app/` from `services/`
+- Residual `router.refresh()` after mutations that already invalidate tags

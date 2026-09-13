@@ -1,0 +1,49 @@
+---
+title: "i18n (frontend)"
+description: "next-intl, en/es locales, and messages."
+---
+
+## Locales
+
+| Locale | Role |
+| --- | --- |
+| `en` | Default |
+| `es` | Spanish |
+
+**There is no `[locale]` segment or prefix in the URL.** Routes are `/sign-in`, `/profiles/...`, etc.
+
+Language is resolved by cookie `NEXT_LOCALE`, `Accept-Language`, and user preferences (`localeMode`) in `i18n/request.ts` + `proxy.ts` (cookie only; **no** next-intl `createMiddleware`).
+
+> **Important:** `localePrefix: 'never'` + `createMiddleware` **does rewrite** internally to `/[locale]/…`. That requires a `[locale]` folder. Without it, `/` is rewritten to `/en` → **404** and infinite loading.
+
+Legacy redirects: `/en/*` and `/es/*` → 308 to the path without a prefix (in `proxy.ts`).
+
+Config: `apps/app/i18n/routing.ts`, `request.ts`, `navigation.ts`, `proxy.ts`.
+
+## Where strings live
+
+| Scope | Path |
+| --- | --- |
+| Base | `apps/app/messages/{locale}.json` |
+| Domains | `apps/app/messages/{locale}/{Domain}/…` (path = namespace) |
+
+Loader: `#/shared/i18n/load-locale-messages`.
+
+**Rule:** when adding or changing a key, keep **en and es** in sync.
+
+## Usage
+
+```ts
+// Server (uses the request / cookie locale)
+const t = await getTranslations('...');
+
+// Client
+const t = useTranslations('...');
+```
+
+## Product vs engineering
+
+- Tab **General → Concepts → Locale and i18n**: product view.
+- This page: implementation conventions on the front.
+
+See also [Locale and i18n (General)](/concepts/locale-and-i18n).

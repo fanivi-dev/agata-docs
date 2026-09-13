@@ -1,0 +1,66 @@
+---
+title: "Routing and shell"
+description: "Profile shell, locales, paths, and proxy."
+---
+
+## Unified shell
+
+A single chrome for every app in the profile:
+
+- `shared/layout/unified-profile-shell.tsx`
+- `shared/layout/profile-shell-frame.tsx`
+- Header breadcrumbs: catalog-derived trail in `use-profile-header-breadcrumbs.ts`; extra crumbs via `profile-page-chrome-context`
+
+Domain `*AppShell` files are thin wrappers (theme / slots).
+
+### Sidebar (concept)
+
+List without headers: Today, Week plan, Calendar, Tasks, Notebook, Activities; then domain apps; Projects/Tags at the end. Audit logs do not go in the sidebar.
+
+### Active area
+
+`shared/constants/profile-area-catalog.ts` is the data-only source for:
+
+- area and segments after `/profiles/:id/`
+- entitlement app (including the Tasks family)
+- theme, icon, destination, group, and order
+- i18n references for shell and command palette pages
+
+`detectProfileAppArea`, the access filter, the shell, and the palette derive from that catalog. It contains no hooks, React elements, providers, or server-only imports.
+
+Runtime capabilities stay explicit: domain tabs nest under sidebar destinations from `shared/constants/profile-area-catalog.ts`, requests in the quick-capture registry, and provider order in `persistent-profile-shell.tsx`.
+
+### Per-app themes
+
+`data-app-theme`: `today`, `weekplan`, `notebook`, `tasks`, `projects`, `tags`, `calendar`, `finance`, `health`, `library`, `nutrition`, `goals`, `pomodoro`, `agent`.
+
+## Path helpers
+
+Source of truth: `apps/app/shared/navigation/paths.ts`.
+
+- `StudioPaths`, `FinancePaths`, `LibraryPaths`, `NutritionPaths`, `HealthPaths`, `NotebookPaths`, `PomodoroPaths`, `GoalsPaths`
+- `getProfilePath`, `pathnameWithoutLocalePrefix` (legacy `/en`/`/es` only); product paths without a locale prefix
+
+Do not hand-build `/profiles/${id}/finance` in features.
+
+## Locale-aware navigation
+
+From `apps/app/i18n/navigation.ts`:
+
+- `Link`, `useRouter`, `usePathname`, `redirect`
+
+From `next/navigation` when applicable: `useParams`, `useSearchParams`, `notFound`.
+
+## Proxy
+
+`apps/app/proxy.ts`:
+
+- Protects known product prefixes (`isProtectedPath`: `/studios`, `/connections`, `/explore`, `/feedback`, `/account`, `/billing`, `/logs`, `/profile`, `/today`) with a Better Auth session
+- Unknown page URLs are not gated — they render the root `app/not-found.tsx`
+- Applies `next-intl`
+- Does **not** rewrite locale on `/_workflow/*`
+- **Bypasses** next-intl on `/api/*` (includes `/api/auth/*`)
+
+## Command palette
+
+Registry: `profile-area-catalog.ts` + launcher `cross-app-launcher.tsx`. Product detail in [Command palette](/workspace/command-palette).
