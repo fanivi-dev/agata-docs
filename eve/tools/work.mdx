@@ -1,0 +1,152 @@
+---
+title: "Work"
+description: "Tasks, subtasks, projects, tags, calendar, and pomodoro. `work` section."
+---
+
+50+ tools across several files, all gated on the **`work`** section.
+
+## Tasks — `tasks.ts`
+
+| Tool | R/W | Endpoint |
+| --- | --- | --- |
+| `list_tasks` | R | `GET /tasks/profiles/{ws}` |
+| `search_tasks` | R | `GET /tasks/profiles/{ws}/search?q=` |
+| `get_task` | R | `GET /tasks/profiles/{ws}/{taskId}` |
+| `list_focus_tasks` | R | `GET /tasks/profiles/{ws}/focus/tabs` |
+| `create_task` | W | `POST /tasks/profiles/{ws}` |
+| `update_task` | W | `PATCH /tasks/profiles/{ws}/{taskId}` |
+| `snooze_task` | W | `POST /tasks/profiles/{ws}/{taskId}/snooze` |
+| `soft_delete_task` | W · **approval** | `POST .../{taskId}/soft-delete` |
+| `restore_task` | W | `POST .../{taskId}/restore` |
+| `duplicate_task` | W | `POST .../{taskId}/duplicate` |
+| `list_task_trash` | R | `GET .../trash` |
+| `bulk_update_tasks` | W · **approval** | `PATCH .../bulk` |
+
+## Bulk create — `tasks_bulk.ts` / `work_bulk.ts`
+
+| Tool | R/W | Endpoint |
+| --- | --- | --- |
+| `bulk_create_tasks` | W | `POST .../bulk-create` |
+| `bulk_create_projects` | W | `POST /projects/.../bulk-create` |
+| `bulk_create_tags` | W | `POST /tags/.../bulk-create` |
+| `bulk_create_reminders` | W | `POST /calendar/.../reminders/bulk-create` |
+| `bulk_create_pomodoro_timers` | W | `POST /pomodoro/.../timers/bulk-create` |
+
+All capped at 50 with a partial response `{ ids, errors }`. Prefer the unit create for a single item.
+
+Behavior notes:
+
+- `create_task` without `projectId` resolves the profile **default project** (`POST /profiles/{ws}/default-project`).
+- Completing a task is `update_task` with `status: "done"`.
+- `assignedTo: []` **clears** assignees.
+- `list_focus_tasks` derives `todayLocalDateKey` from the session timezone; the API returns 400 without it, so it is never asked of the model.
+- `search_tasks` includes archived tasks by default.
+
+## Subtasks, comments, and bulk — `task_items.ts`
+
+| Tool | R/W | Endpoint |
+| --- | --- | --- |
+| `get_task_detail` | R | `GET .../{taskId}/detail` |
+| `list_task_subtasks` | R | `GET .../{taskId}/subtasks` |
+| `create_task_subtask` | W | `POST .../{taskId}/subtasks` |
+| `update_task_subtask` | W | `PATCH .../{taskId}/subtasks/{subtaskId}` |
+| `delete_task_subtask` | W · **approval** | `DELETE .../{taskId}/subtasks/{subtaskId}` |
+| `create_task_comment` | W | `POST .../{taskId}/comments` |
+| `update_task_comment` | W | `PATCH .../{taskId}/comments/{commentId}` |
+| `bulk_soft_delete_tasks` | W · **approval** | `POST .../bulk-soft-delete` |
+| `bulk_assign_project` | W · **approval** | `POST .../bulk-assign-project` |
+
+`get_task_detail` is Eve's largest payload: it brings the task, document, comments, subtasks, and images. It uses `toModelOutput` to flatten the ProseMirror document to plain text (truncated to 2,000 characters), keep 10 comments, and replace images with a count. The chat UI still receives the full object.
+
+`POST /bulk-delete` (hard delete) is **deliberately excluded**: it is irreversible and has no restore path.
+
+## Projects — `projects.ts`
+
+| Tool | R/W | Endpoint |
+| --- | --- | --- |
+| `list_projects` | R | `GET /projects/profiles/{ws}` |
+| `get_project` | R | `GET /projects/profiles/{ws}/{projectId}` |
+| `create_project` | W | `POST /projects/profiles/{ws}` |
+| `update_project` | W | `PATCH .../{projectId}` |
+| `archive_project` | W | `POST .../{projectId}/archive` |
+| `list_project_links` | R | `GET .../{projectId}/links` |
+| `create_project_comment` | W | `POST .../{projectId}/comments` |
+| `link_entity_to_project` | W | `POST .../{projectId}/links` |
+
+Activities **cannot** be linked to a project.
+
+<Warning>
+`archive_project` **toggles**: the API does not accept a target state. The tool description says so the model does not expect an `archived: false` argument, and suggests reading `get_project` first if the direction matters.
+</Warning>
+
+## Tags — `tags.ts`
+
+| Tool | R/W | Endpoint |
+| --- | --- | --- |
+| `list_tags` | R | `GET /tags/profiles/{ws}` |
+| `list_entity_tags` | R | `GET /tags/profiles/{ws}/entities/{type}/{id}` |
+| `set_entity_tags` | W | `PUT /tags/profiles/{ws}/entity-tags` |
+| `create_tag` | W | `POST /tags/profiles/{ws}` |
+
+<Warning>
+`set_entity_tags` **replaces the entire set**: tags not in `tagIds` are removed. To add one, read `list_entity_tags` first. Each entity type has its own cap (5 for tasks).
+</Warning>
+
+Tags cross domains: `task`, `project`, `activity`, `note`, `library_item`, `nutrition_recipe`, `health_checkin`, `finance_transaction`, `finance_recurring_rule`.
+
+`create_tag` **requires** `domainScope`. Entity → domain map:
+
+| Context | `domainScope` |
+| --- | --- |
+| task | `tasks` |
+| project | `projects` |
+| note | `notes` |
+| activity | `activities` |
+| library item | `library` |
+| recipe | `nutrition` |
+| health check-in | `health` |
+| finance category / tx / rule | `finance` |
+| explicit cross-cutting | `general` |
+
+`list_tags` with that domain returns **general + domain**. For **finance categories** do not use `set_entity_tags`: use `set_transaction_category` / `set_recurring_rule_category`.
+
+`DELETE /tags/.../{tagId}` is excluded: it cascades link deletion across all domains. Update / favorite / link / unlink / detailGraph go through `manage_work`.
+
+## Calendar — `calendar.ts`
+
+| Tool | R/W | Endpoint |
+| --- | --- | --- |
+| `get_agenda_window` | R | `GET /calendar/profiles/{ws}/agenda` |
+| `get_agenda_month` | R | `GET /calendar/profiles/{ws}/agenda` (`profile=chip`) |
+| `list_reminders` | R | `GET /calendar/profiles/{ws}/reminders` |
+| `create_reminder` | W | `POST .../reminders` |
+| `update_reminder` | W | `PATCH .../reminders/{reminderId}` |
+| `delete_reminder` | W · **approval** | `DELETE .../reminders/{reminderId}` |
+
+`get_agenda_window` is the cross-cutting tool: it aggregates reminders, task due dates, activities, projects, goals, finance, library, and nutrition in a single call. It is the right answer to "what do I have today?"; `list_focus_tasks` is only for prioritizing work.
+
+Reminders are stored as an absolute instant (`dateMs`, epoch-ms). The tools accept `dateKey` + optional `agendaTime` and convert with the session timezone.
+
+## Pomodoro — `pomodoro.ts`
+
+| Tool | R/W | Endpoint |
+| --- | --- | --- |
+| `list_pomodoro_timers` | R | `GET /pomodoro/profiles/{ws}/timers` |
+| `create_pomodoro_timer` | W | `POST .../timers` |
+| `get_pomodoro_daily_stats` | R | `GET .../sessions/daily-stats` |
+| `list_pomodoro_sessions` | R | `GET .../sessions` |
+| `create_pomodoro_session` | W | `POST .../sessions` |
+
+`create_pomodoro_session` records a session **already finished**. The live timer loop stays in the app. Update / pin / archive / duplicate of presets go through `manage_work`.
+
+`get_pomodoro_daily_stats` also returns `workMinutes` already computed, so the model does not divide seconds.
+
+## Dispatcher `manage_work` — `work_manage.ts`
+
+Long tail (`resource` + `operation` + `data`). Prefer narrow tools for day-to-day work.
+
+| Resource | Ops |
+| --- | --- |
+| `projects` | pin, duplicate, unlink |
+| `tags` | update, favorite, link, unlink, detailGraph |
+| `pomodoroTimers` | update, pin, archive, duplicate |

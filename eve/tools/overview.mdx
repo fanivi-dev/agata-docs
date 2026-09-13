@@ -1,0 +1,123 @@
+---
+title: "Tools: overview"
+description: "Eve's canonical capability catalog, progressive direct-tool exposure, approvals, and prompt budget."
+---
+
+Every Eve capability is a typed tool in `apps/app/agent/tools/`, backed by a Go API endpoint (except explicit Next helpers such as library oEmbed). The canonical catalog has **173 names**, including bounded bulk/multi-write tools, split into groups of at most twelve.
+
+## Progressive typed-tool architecture
+
+- **Narrow tools** for frequent flows (`create_task`, `log_activity`, `plan_meal`, …).
+- **Dispatchers** (`manage_finance`, `manage_nutrition`, `manage_work`, `manage_library`, `manage_health`, `manage_daily`, `manage_goals`, `manage_week_plan`) for coherent long-tail operations.
+- **A canonical capability catalog** owns each name's group, section, mode, risk, intent keywords, entity types, anchor/bulk classification, and optional skill.
+- **Progressive exposure** keeps direct schemas and native approvals: a small core is always available, screen context activates one group, and `search_agent_tools` activates bounded additional groups for the current turn.
+- **Permission-aware skills** carry procedures for day/week planning, goal breakdown, capture/organize, financial review, and meal planning instead of placing every dispatcher payload in the stable prompt.
+
+Shared helper: `agent/lib/domains/_shared/dispatch.ts` (`runOperation`).
+
+## Result presentation
+
+Execution results remain semantic tool data. Every canonical tool also has one
+client-independent presentation policy: a kind (`receipt`, entity,
+collection, profile search, agenda, Week plan, metric summary, trend,
+partial result, navigation, download, dispatcher, or none) and a turn role
+(`terminal`, `supporting`, or `text`). Tools never return JSX, HTML, component
+names, or a generic UI payload.
+
+The chat adapts validated input/output into a bounded view model. Singular
+writes and reads use one compact result card; dense collections use rows;
+searches, agendas, and plans group those rows; bulk/dispatcher failures show
+successful and failed counts. Product-doc lookup, capability discovery, and
+identity/context helpers are deliberately text-only. Invalid historic output
+falls back to a safe receipt or stored prose rather than raw JSON.
+
+`NEXT_PUBLIC_EVE_TOOL_RESULT_UI_MODE=legacy` restores generic receipts as an
+independent presentation rollback. It does not change tool exposure,
+execution, approvals, or persisted history.
+
+## By section
+
+What a user sees depends on their granted sections.
+
+| File | Section | Tools | Reference |
+| --- | --- | ---: | --- |
+| `platform.ts` | _always_ | 4 | [Platform](/eve/tools/platform) |
+| `platform_read.ts` | _always_ | 7 | [Platform](/eve/tools/platform) |
+| `capability_search.ts` | _always_ | 1 | [Platform](/eve/tools/platform) |
+| `profile_search.ts` | _always_ | 1 | [Platform](/eve/tools/platform) |
+| `product_docs.ts` | _always_ | 1 | [Platform](/eve/tools/platform) |
+| `memory.ts` | _always_ | 1 | [Platform](/eve/tools/platform#personal-memory--memoryts) |
+| `tasks.ts` | `work` | 12 | [Work](/eve/tools/work) |
+| `task_items.ts` | `work` | 9 | [Work](/eve/tools/work) |
+| `projects.ts` | `work` | 8 | [Work](/eve/tools/work) |
+| `tags.ts` | `work` | 4 | [Work](/eve/tools/work) |
+| `calendar.ts` | `work` | 6 | [Work](/eve/tools/work) |
+| `pomodoro.ts` | `work` | 5 | [Work](/eve/tools/work) |
+| `work_manage.ts` | `work` | 1 | [Work](/eve/tools/work) |
+| `notebook.ts` | `daily` | 6 | [Daily](/eve/tools/daily) |
+| `activities.ts` | `daily` | 6 | [Daily](/eve/tools/daily) |
+| `manage_daily.ts` | `daily` | 1 | [Daily](/eve/tools/daily) |
+| `weekplan.ts` | `daily` | 5 | [Week plan](/apps/week-plan) |
+| `goals.ts` | `goals` | 8 | [Goals](/eve/tools/goals) |
+| `manage_goals.ts` | `goals` | 1 | [Goals](/eve/tools/goals) |
+| `finance.ts` | `finance` | 14 | [Finance](/eve/tools/finance) |
+| `finance_recurring.ts` | `finance` | 3 | [Finance](/eve/tools/finance) |
+| `finance_planning.ts` | `finance` | 5 | [Finance](/eve/tools/finance) |
+| `finance_admin.ts` | `finance` | 1 | [Finance](/eve/tools/finance) |
+| `health.ts` | `health` | 7 | [Health](/eve/tools/health) |
+| `health_routines.ts` | `health` | 5 | [Health](/eve/tools/health) |
+| `nutrition.ts` | `nutrition` | 6 | [Nutrition](/eve/tools/nutrition) |
+| `nutrition_meals.ts` | `nutrition` | 4 | [Nutrition](/eve/tools/nutrition) |
+| `nutrition_recipes.ts` | `nutrition` | 4 | [Nutrition](/eve/tools/nutrition) |
+| `nutrition_plans.ts` | `nutrition` | 5 | [Nutrition](/eve/tools/nutrition) |
+| `library.ts` | `library` | 9 | [Library](/eve/tools/library) |
+| `library_collections.ts` | `library` | 4 | [Library](/eve/tools/library) |
+
+The table lists the regular domain files; bounded bulk files complete the 173-name catalog. In legacy mode an owner can expose the whole authorized catalog. In progressive mode a model step never receives the whole catalog. See [Auth and sections](/eve/runtime/auth-and-sections).
+
+## Approvals
+
+Tools that move money or personal memory use `always()`. Deletes (and some dispatchers when `operation === "delete"`) use `approveDeleteInSection(...)`, which **denies immediately** if delete permission is missing in that section.
+
+| Class | Examples |
+| --- | --- |
+| Money (`always()`) | `create_transaction`, `update_transaction`, `add_debt_payment`, `settle_finance_debt`, `add_savings_contribution`, `set_budget` |
+| Memory (`always()`) | `manage_eve_memory` |
+| Delete / soft-delete | `soft_delete_task`, `bulk_soft_delete_tasks`, `soft_delete_meal_log`, `soft_delete_library_item`, `delete_reminder`, `delete_task_subtask` |
+| Multi-write | `bulk_assign_project`, `bulk_update_tasks` |
+| Dispatcher delete / archive | `manage_finance` (budgets/plannerItems), `manage_nutrition` (mealPlanSlots), `manage_library` (subitems), `manage_health` (checkins), `manage_daily` (noteGroups), `manage_goals` (always), `manage_work` (unlink and archive-on) |
+| Other reversible destructive action | `archive_project` (the endpoint toggles archive state) |
+
+In chat, Eve input requests retain their native kind: tool approvals use Approve / Deny, questions can show options and freeform input, and session-limit requests explain whether the run can continue. The selected answer remains in history beside the terminal execution state. The turn stays durably parked until someone responds. Toolsets are resolved in `step.started`, so the approval policy is recorded in the same runtime that announces the tool and is not lost after a cold start.
+
+Voice uses the same capability risk policy. A sensitive call first receives a five-minute, single-use server challenge bound to the actor, profile, chat, turn, call, tool, and canonical arguments digest. The handler consumes it atomically before execution; missing, expired, replayed, or changed approvals fail closed. Consent cards use localized area copy and a redacted detail allowlist: internal ids, arbitrary objects, URLs, and secret-like values are never presented as raw arguments.
+
+## Out of scope (deliberate)
+
+- Document bodies (note and task): metadata only.
+- Hard-delete of root entities (accounts, recipes, projects, goals, profiles).
+- Billing / member-role changes (read-only via platform tools).
+- Image upload or generation.
+- External services unless a tool exists in the session.
+
+Use `open_profile_view` to return a deep link so the user can review in the UI.
+
+## Dates and money
+
+- **Every date input is a `YYYY-MM-DD` date key** in the user's timezone. Handlers convert in `lib/domains/_shared/time.ts`.
+- **Every amount is integer cents.** `4500` is 45.00. Outputs include the formatted value.
+
+## Prompt budget
+
+1. Prefer narrow tools; the dispatcher absorbs the long tail without inflating the catalog.
+2. **One-sentence descriptions**, plus a disambiguator for *when to pick this and not the neighbor*. Detailed multi-domain procedures live in permission-aware `agent/skills/`.
+3. **No `.describe()` on obvious fields.**
+4. **`toModelOutput`** when the raw payload can exceed ~1 KB.
+5. **One shaper per Go entity.**
+6. **`limit` capped** at 50, default 25, on every list.
+
+Routing caps are ten core product tools, 24 on the first contextual step, 36 on any later step, and twelve per capability group. Bulk groups only activate for explicitly plural work. `EVE_TOOL_ROUTING_MODE=legacy` is the rollout rollback.
+
+## Disabled
+
+The default sandbox and web tools from Eve's harness are turned off with `disableTool()`: `bash`, `read_file`, `write_file`, `web_fetch`, `agent`. The opt-in `glob` and `grep` tools are not exported, so they remain unavailable.
