@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 28" fill="none">
+  <rect x="0" y="2" width="24" height="24" rx="6" fill="#6366F1"/>
+  <path d="M6 20 L12 8 L18 20 H14.6 L12 14.8 L9.4 20 H6Z" fill="white"/>
+  <text x="32" y="20" font-family="ui-sans-serif, system-ui, sans-serif" font-size="16" font-weight="600" fill="#111827">Agata</text>
+</svg>

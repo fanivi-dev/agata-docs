@@ -1,0 +1,44 @@
+---
+title: "Connections"
+description: "People graph: email invitations and a network for inviting to studios."
+---
+
+**Connections** is your account’s person-to-person network (outside a studio shell). It is not OAuth integrations with Slack, Notion, or other providers.
+
+## What it is for
+
+1. You invite someone by the email they use with Agata.
+2. That person accepts (or declines) the request.
+3. They appear on your connections list.
+4. When inviting to a **studio**, you can pick people from that list in one click.
+
+## Route
+
+```txt
+/connections
+```
+
+## Capabilities
+
+| Action | Detail |
+| --- | --- |
+| Invite | Email → Resend + `pending` invitation. Without `RESEND_API_KEY` the API rejects the send |
+| Incoming | Accept or decline |
+| Outgoing | Cancel while pending |
+| List | Search by name/email; remove a connection |
+| Studio | “From your connections” picker when inviting members (studio selector or **Settings → Members / Invitations**) |
+
+## Stack
+
+- UI: `features/platform/domains/connections/`
+- BFF: `services/connections/`
+- API: `apps/api/internal/connections/` (`/users/me/connections…`)
+
+## It is not
+
+- External providers, third-party OAuth, or data sync from other apps.
+- A substitute for studio members or **Follow**. Collaboration lives on the
+  studio team; Follow is the public audience. Connections only speeds inviting
+  people you already know.
+- [Explore](/platform/explore), which ranks public studios from those
+  connections and from public teams you belong to.

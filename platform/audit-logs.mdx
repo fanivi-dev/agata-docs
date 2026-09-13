@@ -1,0 +1,45 @@
+---
+title: "Audit logs"
+description: "Studio activity log (owner/admin)."
+---
+
+**Audit logs** show sensitive studio activity for owners and admins.
+
+## Route
+
+```txt
+/studios/:id/logs
+```
+
+Helper: `StudioPaths.LOGS`. Bare `/logs` (and legacy `/en/logs`, `/es/logs`) redirects to the current studio path.
+
+## Capabilities
+
+- Studio log listing (owner + admins)
+- Entry in the user menu, studio settings, and ⌘K (not in the sidebar)
+- Filters: domain, person (actor), action type, date range + search
+- Interactive rows with a detail panel (actor, absolute timestamp, entity link, metadata/diff)
+- Absolute timestamps in local time
+- “Load more” pagination with total
+- CSV export from the filter bar
+- Members without permission see an “admins only” empty state (not a generic error)
+
+## API
+
+`GET /studios/:id/audit-logs` and `/search` accept:
+
+| Query | Notes |
+| --- | --- |
+| `domain` | Product domain |
+| `actorUserId` | Actor |
+| `action` | Exact action (`tasks.created`, …) |
+| `from` / `to` | Epoch ms or RFC3339 |
+| `cursor` / `limit` | Pagination |
+| `q` | `/search` only |
+
+The list includes `meta.total`.
+
+## Code
+
+- Feature: `apps/app/features/audit-logs/`
+- Demo seed: `SeedAuditLogs` in `apps/api/internal/seed/`

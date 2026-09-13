@@ -1,0 +1,80 @@
+---
+title: "Billing and plans"
+description: "Free, Pro, and Business studio plans — prices, capacity, and lifecycle."
+---
+
+Billing is based on **studio plans**, with Stripe Checkout and the customer portal when configured. `/billing` and account billing links redirect to the current studio. The plan, price, and status shown in Agata are projected from Stripe price IDs and subscription lifecycle events.
+
+The stored free key is `base`. Product copy says **Free**. Retired Starter and Team price IDs normalize to Pro; Business is a distinct plan.
+
+## Plans
+
+| Plan | Price | Included members | AI credits / month | Agent image pool | Studio content |
+| --- | --- | ---: | ---: | ---: | --- |
+| **Free** (`base`) | $0 | 5 | 100, pooled per owner across all Free studios | 50 MB | Unlimited |
+| **Pro** | $12/month or $120/year | 10 | 500 | 250 MB | Unlimited |
+| **Business** | $39/month or $390/year | 25 | 2,000 | 1 GB | Unlimited |
+
+Annual plans are billed up front. The displayed monthly equivalents are $10 for Pro and $32.50 for Business.
+
+Tasks, projects, tags, activities, reminders, email reminder configurations, goals, finance accounts, and finance transactions do not have customer-facing plan limits. Agata keeps generous private safeguards for abuse prevention; their values and counters are not part of the product contract or usage UI.
+
+## Recurring extras
+
+Extras are available after activating Pro or Business. Free must upgrade first.
+
+| Extra | Monthly | Annual | Maximum quantity per studio |
+| --- | ---: | ---: | ---: |
+| Additional member | $3/month | $30/year | 100 |
+| Pack of 500 AI credits/month | $10/month | $100/year | 100 |
+
+An annual AI pack is billed up front but grants **500 new credits each month**. Unused credits expire at the end of the monthly window and do not roll over.
+
+`profiles.seat_count` is the effective member capacity: members included in the plan plus extra members. A reduction cannot leave capacity below active members plus pending invitations.
+
+## AI capacity
+
+- An accepted Agent turn consumes **1 credit**, regardless of the model or tools used.
+- Free credits are pooled per owner. Paid credits stay studio-scoped and are shared by that studio's members.
+- A 14-day paid trial uses the full credit pool of the selected plan.
+- Metronome is the canonical ledger; Postgres keeps an operational balance projection.
+- The Agent image pool is studio-wide private Blob storage under `profiles/{id}/agent/…` and follows the effective plan.
+- Owners can buy credit packs from **Billing → Extras**. Other members can see the balance and must contact the owner.
+
+## When changes apply
+
+| Change | When it applies | If payment fails |
+| --- | --- | --- |
+| Plan, member, or pack increase | Immediate, with Stripe proration; capacity changes after payment confirmation | Previous plan and capacity remain active (`payment_pending`) |
+| Plan downgrade, quantity reduction, or interval change | At the next renewal through a Subscription Schedule | No immediate charge |
+| Mid-period AI pack increase | Proportional grant for the current window; full 500-credit grants from the next month | Same as other increases |
+| Cancellation | End of period through the Stripe portal | — |
+| After cancellation takes effect | Studio moves to Free | Content remains available; member, credit, and image capacity use Free entitlements |
+
+When changing plans, extra members are recalculated to preserve total member capacity when possible. Existing studio content is never deleted or made read-only by a downgrade.
+
+Intermediate billing states include scheduled changes (`billing_pending_*`), cancellation at period end, failed payment with a seven-day grace period, and payment confirmation pending.
+
+## Deleting a studio with a plan
+
+1. A blocking subscription (`active`, `trialing`, `incomplete`, `past_due` in grace, or `canceled` within its paid period) prevents soft deletion.
+2. Cancel the plan in Billing or wait for it to end.
+3. Move the studio to trash, which has a 30-day recovery window.
+4. Permanently delete it or let the automatic purge remove it after the window.
+
+Trash detail: [Studios, members, and follow](/concepts/organizations-studios).
+
+## Where it is managed
+
+| Route | Use |
+| --- | --- |
+| `/studios/:id/billing` | Plan status, member and credit usage, extras, invoices, and plan changes |
+| `/billing` | Redirect to the current studio billing page |
+
+The billing page is a single view with no tabs. It shows the authoritative subscription status, plan summary, member and AI credit usage, recurring extras, recent invoices, and the Free/Pro/Business comparison.
+
+## Stripe configuration
+
+Preview uses test Prices and Production uses live Prices. All eight `STRIPE_PRICE_*` variables, `STRIPE_SECRET_KEY`, and `STRIPE_WEBHOOK_SECRET` are required for the billing plugin. Initial Checkout purchases the selected plan; extras are managed afterwards in Agata.
+
+The Stripe portal owns payment methods, full invoice history, and cancellation. Opening Billing reconciles the current Stripe subscription into the Go projection when necessary. Audit records live in `plan_change_audit_log` and `billing_webhook_events`.

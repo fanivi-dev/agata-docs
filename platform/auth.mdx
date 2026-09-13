@@ -1,0 +1,49 @@
+---
+title: "Accounts and access"
+description: "Sign-in, sign-up, and session in Agata."
+---
+
+## Surfaces
+
+| Route | Use |
+| --- | --- |
+| `/sign-in` | Sign in |
+| `/sign-up` | Create an account |
+| `/forgot-password` | Request a reset link |
+| `/reset-password` | Choose a new password (`?token=` or `?error=INVALID_TOKEN`) |
+
+The session keeps access to studios and preferences.
+
+## What happens after login
+
+1. Better Auth creates/updates the row in `user` (+ `session`).
+2. On first sign-up, a Better Auth hook asks the API to mirror into `users` (`POST /api/internal/users/bootstrap` with `CRON_SECRET` server-to-server).
+3. The BFF loads **`GET /api/users/me/session`** (payload in Upstash Redis: user, preferences, studios, and permissions). If the mirror does not exist yet, it makes a single `POST /api/users/me/bootstrap` and retries the session.
+4. RSC seeds `initialSession` on the client; the bootstrap gate does **not** bootstrap again if the SSR session already arrived.
+5. You land in **Tasks** of the active studio.
+6. Preferences (theme, locale) are applied in the shell from the session.
+
+## Email (production)
+
+In Production (`VERCEL_ENV=production`), email/password sign-up **requires verification**:
+
+1. Better Auth creates the account and sends a link via **Resend** (`RESEND_API_KEY` + `EMAIL_FROM` on `agata-app`).
+2. The user confirms the link and signs in (auto sign-in after verifying).
+3. If they try to sign in without verifying, they receive a new link (`sendOnSignIn`).
+
+Preview and local do not force verification. Password reset uses the same Resend: from `/forgot-password` the app calls Better Auth (`requestPasswordReset` with `redirectTo: '/reset-password'`), the email carries the link, and `/reset-password` completes the change with the `token` from the query.
+
+Vars: [Configuration → agata-app](/config/app).
+
+## Security (product)
+
+- Do not share session links.
+- In team, **owner / admin / member** roles limit billing, logs, and member management.
+- Better Auth `session.freshAge` is `0` (no “fresh session” check) so listing/revoking sessions and unlinking accounts works with long-lived OAuth sessions. Changing the password still requires the current password.
+- Google and email/password are **not mutually exclusive**: if you signed in with Google only, in Account → Security you can **set a password** (creates the `credential` account) and keep using Google. If you already have a password, the same block is used to change it.
+- Password policy (sign-up, reset, and Account → Security): **minimum 10 characters** and include a **number or symbol**. Unlinking Google is blocked if it is the only provider and there is no password.
+- Email change is **not self-service** yet: Account → Profile has clear copy and a support link. `/profile` opens the account modal.
+- **MFA / 2FA**: not implemented. The Account → Security UI states this explicitly (no fake toggles) until the real flow exists.
+- Sign in with Apple is registered only when all five `APPLE_*` variables are present; the native App ID is validated via `APPLE_APP_BUNDLE_IDENTIFIER`.
+
+Technical detail of API headers (for developers): [API → Authentication](/api/authentication) tab.
