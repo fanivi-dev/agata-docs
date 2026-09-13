@@ -1,0 +1,52 @@
+---
+title: "Reference: finance"
+description: "Accounts, transactions, budgets, debts, savings, and analytics."
+---
+
+Prefix: **`/finance/profiles/:profileId`**
+
+## Surfaces
+
+| Area | Main paths |
+| --- | --- |
+| Accounts | `GET/POST /accounts`, `GET /accounts/:accountId`, `PATCH/DELETE /accounts/:accountId`, `GET /accounts/net-worth`, `GET /accounts/:accountId/summary`, `GET /accounts/:accountId/balance-history` |
+| Transactions | `GET/POST /transactions` (`?recurringRuleId=`, `?savingsGoalId=`, `?origin=recurring\|manual`, `?currency=`, `?q=`, `?paymentStatus=pending\|paid`), `GET /transactions/counts`, `PATCH/DELETE /transactions/:id`, `GET /transactions/search` |
+| Tags | Classification via profile tags (`domain_scope=finance`); ledger `GET /tags/:tagId/ledger` |
+| Budgets | `GET /budgets`, `PUT /budgets`, `DELETE /budgets/:id` |
+| Recurring | `GET/POST /recurring`, `GET /recurring/:ruleId`, update/delete (scope + month), `…/active`, `…/skip-month`, `POST /recurring/ensure-month`; types `expense`, `income`, `transfer` |
+| Debts | `GET/POST /debts`, `GET /debts/:debtId`, update/delete, `GET/POST /debts/:debtId/payments` (POST creates a paid `expense` + `transaction_id`; `fromAccountId` or the debt's `accountId`), groups CRUD |
+| Savings | `GET/POST /savings/goals`, update/delete, `GET/POST /savings/goals/:goalId/contributions` (creates a paid `income` except legacy `transactionId`; `toAccountId` or the goal's `accountId`) |
+| Analytics | `/analytics/period-summary`, `monthly-trend`, `period-breakdown` |
+| Search | `GET /search` |
+
+## Finance conventions
+
+- Integer **cents**
+- Business dates `YYYY-MM-DD` when applicable
+- Always scoped to a profile
+- A recurring `transfer` rule requires distinct `fromAccountId` and `toAccountId`,
+  and does not accept `tagId` or `debtId`
+- The account accepts `statementDay` (1–31), `isPrimary` (unique per profile: when
+  you mark one, the previous one stops being primary) and `maskLast4` (exactly 4 digits)
+- `settledAt` on a debt is **clearable** on `PATCH /debts/:debtId`: omitting it
+  changes nothing, a timestamp marks it settled, and `null` reopens it. Recording a
+  payment that leaves the balance at 0 also settles it
+- In the same PATCH, `dueDayOfMonth`, `minimumPaymentCents`,
+  `annualInterestRateBps`, `targetPayoffDate`, `lender`, and `currency` are
+  **clearable**: omit to keep the value; `null` clears it
+- `GET /debts/:debtId/payments` returns the history in chronological order
+  (max. 500) with `balanceAfterCents` accumulated from the initial balance
+- Creating or updating as paid an `expense` with `debtId` creates or syncs its
+  debt payment in the same transaction. Changing it to pending or deleting it
+  restores the balance and removes the associated payment
+- Creating or updating as paid an `income` with `savingsGoalId` creates or syncs
+  its savings contribution in the same transaction. Expense and transfer reject
+  `savingsGoalId`; income and transfer reject `debtId`. Transfers require both
+  accounts to use the same non-blank currency
+- `GET /analytics/period-summary` and list/search accept `currency`. Totals are
+  never mixed across currencies
+- Budgets, savings goals, and planner scenarios accept `currency`
+
+Guide: [Log a transaction](/api/guides/log-a-transaction)
+
+OpenAPI: tag **Finance** · also `apps/api/openapi/finance.v1.yaml` in the monorepo.

@@ -1,0 +1,68 @@
+---
+title: "Reference: week-plan, goals, health, nutrition, library, pomodoro"
+description: "Quick map of the remaining product domains."
+---
+
+## Week plan — `/week-plan/profiles/:id`
+
+- `GET /by-week?weekStartDateKey=` — header + items (does not create the header)
+- `POST /items` — creates an item (+ lazy create of the week header); optional `dateKey` (Later); `repeatWeekly` creates a series; `sourceActivityId` / `sourceTaskId` (XOR)
+- `PATCH /items/:itemId` — title / notes / done / dateKey (`""` = Later) / sortOrder / `repeatWeekly` / `stopRepeating` / `clearActivityId` / `clearTaskId`
+- `DELETE /items/:itemId` — soft-delete
+- `POST /items/reorder` — `{ items: [{ id, sortOrder, dateKey? }] }` (`dateKey: ""` = Later)
+- `POST /series/ensure` — materializes active series in the week
+
+`weekStartDateKey` must be a Monday (`YYYY-MM-DD`). Product: [Week plan](/apps/week-plan).
+
+## Goals — `/goals/profiles/:id`
+
+- CRUD goals
+- Milestones
+- Links to entities
+- Delete image (`DELETE /:goalId/images/:imageId`); attach via blob `domain=goals`
+- `GET /linkable-entities`
+- Insights: `GET /insights-summary?todayDateKey=`
+- Vision boards: `GET/POST /vision-boards`, `GET/PATCH/DELETE /vision-boards/:boardId`, `POST /vision-boards/:boardId/duplicate`, items + `POST .../items/layout`
+
+## Pomodoro — `/pomodoro/profiles/:id`
+
+- Timers CRUD, pin, archive, duplicate
+- Sessions + daily-stats
+- Recent sessions per timer
+- Insights: `GET /insights-summary?todayDateKey=&rangeDays=`
+
+## Library — `/library/profiles/:id`
+
+- Items (+ deleted, restore, permanent delete, subitems, reorder)
+- Collections (+ items, reorder)
+- Insights: `GET /insights-summary`
+
+## Health — `/health/profiles/:id`
+
+- Check-ins (list, create, upsert, delete)
+- Routines + blocks + attachments
+- Sessions
+- Metric definitions + entries
+
+Routine POST/PATCH accepts `instructions`, `scheduleHint`, `targetDurationMinutes`
+and `defaultIntensity` alongside name, sport and summary. Routine reads return
+those fields. PATCH preserves omitted fields; send `""` to clear text/intensity
+and `null` to clear duration. Duration must be an integer from 1 to 2147483647.
+Intensity is `easy`, `moderate`, `hard`, `max`, or `""` to clear it.
+
+## Nutrition — `/nutrition/profiles/:id`
+
+- Recipes
+- Inventory
+- Meal logs
+- Shopping items
+- Meal plans + slots (by-week, complete, activate)
+- Insights: `GET /insights-summary?startDateKey=&endDateKey=&todayLocalDateKey=`
+
+## How to go deeper
+
+1. Sidebar → **OpenAPI reference** → domain tag  
+2. `handler.go` for the exact list of routes  
+3. `apps/app/services/<domain>/` for the TS client  
+
+When a domain grows in usage (like finance/tasks), promote a guide under `api/guides/`.
