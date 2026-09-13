@@ -1,0 +1,79 @@
+---
+title: "Goals"
+description: "goals, goal_milestones, goal_links, goal_images, and vision boards tables."
+---
+
+## `goals`
+
+| Column | Notes |
+| --- | --- |
+| `profile_id` / `user_id` | Goal author (shared in the profile) |
+| `title` / `description` | |
+| `status` | Default `active` |
+| `progress_mode` | Default `manual` |
+| `manual_progress_percent` | |
+| `start_date_key` / `target_date_key` | Local days |
+| `visibility` | `members` \| `followers` \| `public`. Default `members`. Public catalog: `/@handle/goals/:id`. Vision boards stay members-only. |
+| soft delete | |
+
+Indexes by profile and (profile, user, updated).
+
+## `goal_milestones`
+
+| Column | Notes |
+| --- | --- |
+| `goal_id` / `profile_id` / `user_id` | |
+| `title` | |
+| `completed` / `completed_at` | |
+| `position` | Order |
+
+## `goal_links`
+
+Polymorphic link:
+
+| Column | Notes |
+| --- | --- |
+| `link_type` | Linked entity type |
+| `entity_id` | TEXT |
+
+## `goal_images`
+
+Same blob pattern as `activity_images`: store, pathname, etag, position, soft delete. One active image per goal (an attach replaces the previous one).
+
+Goals are unlimited for customers. Private abuse safeguards may return `CAPACITY_GUARD_REACHED`.
+
+## `vision_boards`
+
+Source: `000058_vision_boards.up.sql`. Visual collages in the Goals app.
+
+| Column | Notes |
+| --- | --- |
+| `profile_id` / `user_id` | Author (shared in the profile) |
+| `title` / `intention` | Name and intention |
+| `status` | `active` \| `archived` |
+| `is_favorite` | Personal favorite |
+| `background_kind` | `color` \| `image` |
+| `background_value` | Preset (`paper`, `linen`, …) or URL |
+| `canvas_width` / `canvas_height` | Virtual canvas (default 1600×1000) |
+| soft delete | |
+
+Index by profile + `updated_at`.
+
+## `vision_board_items`
+
+| Column | Notes |
+| --- | --- |
+| `board_id` / `profile_id` / `user_id` | |
+| `item_type` | `image` \| `quote` \| `note` \| `goal` |
+| `title` / `body` / `attribution` | Text by type |
+| `goal_id` | Linked goal (`ON DELETE SET NULL`) |
+| `image_blob_url` / `image_blob_pathname` | Private blob |
+| `pos_x` / `pos_y` / `width` / `height` / `rotation` / `z_index` | Collage layout |
+| `style` | Presentation JSONB |
+| soft delete | |
+
+## `vision_board_goal_links`
+
+Board ↔ goal link (`PRIMARY KEY (board_id, goal_id)`). `ON DELETE CASCADE` on both ends.
+
+Domain limits (not plan limits): 50 boards per profile, 80 items per board.

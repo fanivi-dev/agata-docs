@@ -1,0 +1,103 @@
+---
+title: "Configuration"
+description: "Vercel environment variables (app + api)."
+---
+
+Documentation of **names** and purpose of the environment variables
+deployed on Vercel. It does not include values or secrets.
+
+## Vercel projects (not Services)
+
+Agata uses **two** Vercel projects on the same monorepo (no root `vercel.json` with `services`):
+
+| Project | Root Directory | Code | Role |
+| --- | --- | --- | --- |
+| **agata-app** (or similar) | `apps/app` | Next.js | Product + marketing at [agata.in](https://agata.in) |
+| **agata-api** (or similar) | `apps/api` | Container / `Dockerfile.vercel` | Go HTTP + migrations + crons `/api/internal/...` |
+
+Config per app:
+
+- Next: `apps/app/vercel.json` (`ignoreCommand` skips the build if the diff does not touch `apps/app`, `packages/`, or lockfile/workspace config); Functions and builds use Node.js 24+ while Bun remains the package manager
+- API: `apps/api/vercel.json` (`ignoreCommand` skips if there are no changes under `apps/api`)
+- A leftover Storybook Vercel project (`apps/storybook`) is ignored on every deploy (`ignoreCommand` always exits 0). Do not treat it as a third production surface.
+
+### Why not Vercel Services
+
+Services mounts the Next service under an internal path `/services/<name>/…` (`x-matched-path: /services/app/index`) and the runtime looks for **Pages Router** modules (`.next/server/pages/services/app/index.js`). With **App Router** that fails with `MODULE_NOT_FOUND` and the UI stays on an infinite skeleton. Services was already reverted for the same reason (see history `f00cd5a6`).
+
+### App → API link
+
+The Next BFF calls Go with a single env: `GO_API_URL`.
+
+- In a Services monorepo the binding injected `GO_API_URL`.
+- With separate projects: set `GO_API_URL` on the **app** project to the **api** deployment URL (Related Projects / manual env). Local: `http://localhost:8080`. Optional: `GO_API_VERCEL_PROTECTION_BYPASS` for protected previews.
+
+### Crons
+
+They live on the **api** project (`apps/api/vercel.json`), paths `/api/internal/...`:
+
+| Schedule (UTC) | Path |
+| --- | --- |
+| `7 * * * *` | `/api/internal/qstash/recover` |
+| `3 2 * * *` | `/api/internal/tasks/trash/purge` |
+| `3 3 * * *` | `/api/internal/studios/invitations/expire` |
+| `3 4 * * *` | `/api/internal/billing/reconcile-usage` |
+
+Finance recurrences are materialized on-demand (`ensure-month`); `task_count` is maintained by SQL triggers.
+
+### Domains
+
+- Marketing + app: domain of the **app** project (e.g. `agata.in`).
+- Public API if needed: domain or subdomain of the **api** project, or server-side only via `GO_API_URL`.
+
+Variable details:
+
+- [Next.js (app)](/config/app)
+- [Go API (api)](/config/api)
+
+## Environments
+
+| Vercel environment | Use |
+| --- | --- |
+| **Production** | Deploy from `main` (canonical domain) |
+| **Preview** | PR / branch deploys |
+
+The matrices on each page reflect what is **configured today** in the Vercel dashboard/CLI. We do **not** use `.env.example` in the repo; the source of truth for names and environments is this Configuration tab.
+
+## Conventions
+
+- Variables **without** the `NEXT_PUBLIC_` prefix are server-only (Server Actions, Route Handlers, Go). Never expose them to the client.
+- Prefix `NEXT_PUBLIC_*` → embedded in the browser bundle. Only public URLs or other non-sensitive data.
+- Local: `apps/app/.env.local` and `apps/api/.env.local` (gitignored), or `vercel env pull`. Do not commit secrets or `.env.example` templates.
+- In docs and PRs: document **names**, not values.
+
+<Warning>
+Never paste secrets (DB URLs, Stripe keys, Blob/Upstash tokens) into MDX, issues, or chats.
+</Warning>
+
+## CLI management
+
+From each app (or with `--cwd`):
+
+```bash
+# App (Root Directory apps/app)
+cd apps/app && vercel link
+vercel env pull .env.local --environment=preview
+
+# API
+cd apps/api && vercel link
+```
+
+To add or rotate: Vercel Dashboard → Project → Settings → Environment Variables, or `vercel env add` / `vercel env rm`.
+
+A feature that introduces new env vars follows the [lifecycle](/architecture/feature-lifecycle): document the **name** here, set Preview and Production on both projects, and do not commit values.
+
+## Local vs Vercel
+
+| Context | Source |
+| --- | --- |
+| Local dev | `apps/app/.env.local`, `apps/api/.env.local` |
+| Names / matrices | These docs (Configuration) |
+| Preview / Production | Variables of each project on Vercel |
+
+Local: `GO_API_URL=http://localhost:8080` (or the code default) and `bun run api:dev`. In `next dev`, a remote `GO_API_URL` is ignored unless `GO_API_ALLOW_REMOTE=1`. In deploy, `GO_API_URL` points to the api project.

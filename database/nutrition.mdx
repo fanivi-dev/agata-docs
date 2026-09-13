@@ -1,0 +1,108 @@
+---
+title: "Nutrition"
+description: "Recipes, inventory, meal logs, shopping, and meal plans."
+---
+
+## Recipes
+
+### `nutrition_recipes`
+
+| Column | Notes |
+| --- | --- |
+| `profile_id` / `created_by` | |
+| assignees | Table `recipe_assignees` (N); API `assignedTo: string[]` |
+| `name` / `description` / `servings` | |
+| `prep_minutes` / `cook_minutes` / `notes` | |
+| macros | `calories_per_serving`, `protein_g`, `carbs_g`, `fat_g` |
+| `visibility` | `members` \| `followers` \| `public`. Default `members` |
+| image / blob fields | |
+| soft delete | |
+
+### `nutrition_recipe_ingredients`
+
+`recipe_id`, `name`, `quantity`, `unit`, `position` (no soft delete).
+
+### `nutrition_recipe_steps`
+
+`recipe_id`, `body`, `position` (no soft delete). Ordered instructions.
+
+### `nutrition_recipe_tools`
+
+`recipe_id`, `name`, `position` (no soft delete). Utensils / equipment.
+
+## Inventory
+
+### `nutrition_inventory_items`
+
+| Column | Notes |
+| --- | --- |
+| `profile_id` / `created_by` | |
+| assignees | Table `inventory_item_assignees` (N); API `assignedTo: string[]` |
+| `name` / `name_normalized` | |
+| `quantity` / `unit` / `min_quantity` | |
+| `location` | |
+| `expires_at` / `expires_at_key` | |
+| soft delete | |
+
+## Meal logs
+
+### `nutrition_meal_logs`
+
+| Column | Notes |
+| --- | --- |
+| `profile_id` / `created_by` | |
+| assignees | Table `meal_log_assignees` (N); API `assignedTo: string[]` — replaces `member_user_ids` (migration `000016`) |
+| `date` / `date_key` | |
+| `meal_type` / `title` | |
+| `recipe_id` | Optional |
+| `servings` / `notes` | |
+| macro overrides | calories/protein/carbs/fat |
+| `is_template` | |
+| `visibility` | `members` \| `followers` \| `public`. Default `members`. Public day page: `/@handle/meals/:dateKey`. Allowlist DTO only (no macros, notes, or assignees). |
+| image/blob fields | |
+| soft delete | |
+
+## Shopping
+
+### `nutrition_shopping_collections`
+
+Lists: name, description, `target_date_key`, color, archived/soft delete.
+
+### `nutrition_shopping_items`
+
+| Column | Notes |
+| --- | --- |
+| `profile_id` / `created_by` | |
+| assignees | Table `shopping_item_assignees` (N); API `assignedTo: string[]` |
+| `collection_id` | Optional |
+| `name` / qty / unit | |
+| `status` | Default `pending` |
+| `source` | Default `manual` |
+| `recipe_id` / `inventory_item_id` | Links |
+| `checked_at` | |
+| soft delete | |
+
+## Meal plans
+
+### `nutrition_meal_plans`
+
+| Column | Notes |
+| --- | --- |
+| `profile_id` / `created_by` | |
+| assignees | Table `meal_plan_assignees` (N); API `assignedTo: string[]` |
+| `week_start_date_key` | Week |
+| `name` / `notes` | |
+| `status` | Default `draft` |
+| `visibility` | `members` \| `followers` \| `public`. Default `members` |
+| `activated_at` / `completed_at` | |
+| soft delete | |
+
+### `nutrition_meal_plan_slots`
+
+| Column | Notes |
+| --- | --- |
+| `plan_id` / `date_key` / `meal_type` | |
+| `recipe_id` / `custom_title` | |
+| assignees | Table `meal_plan_slot_assignees` (N); API `assignedTo: string[]` — replaces `member_user_ids` |
+| `servings` / `notes` | |
+| `materialized_meal_log_id` | → meal_logs when materialized (copies slot assignees) |

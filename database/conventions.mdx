@@ -1,0 +1,143 @@
+---
+title: "Schema conventions"
+description: "Shared patterns: IDs, soft delete, profile scope, money, dates, and dual users."
+---
+
+Reading this once prevents misreading 80% of the tables.
+
+## Dual identity: two “users”
+
+| Table | Role |
+| --- | --- |
+| `"user"` (Better Auth) | Login, session, OAuth. PK **TEXT**. camelCase columns. |
+| `users` (platform) | Product identity. PK **UUID**. `auth_user_id` → `"user".id`. |
+
+```txt
+Better Auth "user".id  ←→  users.auth_user_id  →  users.id (UUID)
+```
+
+Never use the Better Auth id as `created_by` on domain tables: use **`users.id`**.
+
+## Profile scope
+
+Almost every product entity has:
+
+```sql
+profile_id UUID NOT NULL REFERENCES profiles(id)
+```
+
+Domain queries **always** filter by `profile_id` (and membership in the API).
+
+## Soft delete
+
+Usual pattern:
+
+| Column | Meaning |
+| --- | --- |
+| `deleted_at` | Soft delete (NULL = active) |
+| `archived_at` / `is_archived` | **Hide from active lists** by default; the resource remains countable and visible in contextual views (project detail, tags, reports, search, metrics). This is not a soft-delete. |
+| `permanently_deleted_at` | Profiles only (purge) |
+
+Unique indexes are usually **partial**:
+
+```sql
+WHERE deleted_at IS NULL
+```
+
+## Timestamps
+
+| Column | Type | Default |
+| --- | --- | --- |
+| `created_at` | TIMESTAMPTZ | `NOW()` |
+| `updated_at` | TIMESTAMPTZ | `NOW()` |
+
+## Primary keys
+
+- Product: `UUID DEFAULT gen_random_uuid()`
+- Better Auth / billing webhooks: often **TEXT** natural keys
+
+## JSONB
+
+Used for settings, preferences, event payloads, etc.
+
+| Example | Typical contents |
+| --- | --- |
+| `profiles.settings` | enabled sections, flags |
+| `user_preferences.appearance` | `{ "theme": "system" }` |
+| `activities.recurrence_weekdays` | array of days (habits) |
+| `project_events.payload` | feed event |
+
+## Money
+
+| Convention | Detail |
+| --- | --- |
+| Unit | **Cents** (`BIGINT`) |
+| Names | `*_cents`, `opening_balance_cents`, `amount_cents` |
+| Interest | sometimes **basis points** (`annual_interest_rate_bps`) |
+
+**Never** `DOUBLE` for ledger money.
+
+## Business dates vs instants
+
+| Type | Format | Example column |
+| --- | --- | --- |
+| Instant | TIMESTAMPTZ | `occurred_at`, `created_at` |
+| Local day | `TEXT` `YYYY-MM-DD` | `due_date_key`, `date_key`, `day_key`, `week_start_date_key` |
+
+The `*_key` columns avoid timezone ambiguity in daily UI (health, nutrition, tasks due).
+
+## Denormalized counters
+
+| Where | Field | Updated by |
+| --- | --- | --- |
+| `profiles` | `member_count`, `project_count`, `seat_count` | app / billing |
+| `profile_projects` | `task_count` | **triggers** on `tasks` |
+| `profile_tags` | `link_count` | app |
+
+## Polymorphic entity links
+
+Several tables link “any entity” with:
+
+```txt
+entity_type TEXT
+entity_id   TEXT  -- or UUID depending on the table
+```
+
+Examples: `profile_tag_links`, `profile_project_links`, `goal_links`.
+
+## Full-text search
+
+GIN indexes on `to_tsvector('simple', …)` on:
+
+- `tasks.search_blob` — denormalized: document **name + body** from the editor (`000022`)
+- `task_documents.search_text` — body only (folded into `tasks.search_blob` on save)
+- `notes.search_blob`
+- `finance_transactions.search_blob`
+- (+ trgm on names: `tasks.name`, `profile_tags.normalized_name`)
+
+Go helpers: `internal/shared/fts` (`MatchSQL`, `RankSQL`, `TsQuery`, `JoinBlob`). tsquery config: **`simple`**. Match with `to_tsquery` and tokens in **prefix** (`token:*` via `TsQuery`) for typeahead; ranking with `ts_rank` on search endpoints (tasks search, finance search/knowledge, notes list with `q`).
+
+## PostgreSQL runtime
+
+- `DATABASE_URL` uses PgBouncer (port 6432); `MIGRATE_DATABASE_URL` uses a direct connection (port 5432).
+- The GORM runtime uses the pgx simple protocol and does not cache prepared statements. Session-bound prepared statements are not safe with the pooler and have caused collisions between connections.
+- GORM does not ping implicitly: bootstrap runs a single `PingContext` with a contextualized error before serving traffic.
+- Each instance limits the pool to 10 open connections and 2 idle by default, avoiding unnecessary connection multiplication when Vercel scales horizontally.
+
+## Naming
+
+| Layer | Style |
+| --- | --- |
+| Product tables | `snake_case` plural or domain-prefixed (`finance_`, `health_`) |
+| Better Auth | camelCase in quotes (`"userId"`) |
+| FKs | `{singular_table}_id` |
+
+## Checklist when adding a table
+
+- [ ] `profile_id` if it is product data  
+- [ ] `created_at` / `updated_at`  
+- [ ] Soft delete if the product has a “trash”  
+- [ ] Indexes for listings by profile  
+- [ ] Partial uniques with `WHERE deleted_at IS NULL`  
+- [ ] Up **and** down migration  
+- [ ] Update this docs tab in the same PR  

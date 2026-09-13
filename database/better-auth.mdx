@@ -1,0 +1,82 @@
+---
+title: "Better Auth"
+description: "Better Auth adapter tables (camelCase) and the link to platform users."
+---
+
+Sources: `000002_better_auth.up.sql`, extended by
+`000026_legal_acceptance.up.sql` and `000061_better_auth_account_issuer.up.sql`.
+
+<Warning>
+  Tables **distinct** from `users`. Link: `users.auth_user_id` → `"user".id`.
+</Warning>
+
+## `"user"`
+
+| Column | Type | Notes |
+| --- | --- | --- |
+| `id` | TEXT PK | Auth id |
+| `name` | TEXT NOT NULL | |
+| `email` | TEXT NOT NULL | Unique |
+| `emailVerified` | BOOLEAN | Default false |
+| `image` | TEXT | |
+| `stripeCustomerId` | TEXT | Billing plugin |
+| `termsAcceptedAt` | TIMESTAMPTZ | Acceptance date on accounts created since the current legal version |
+| `termsVersion` | TEXT | Accepted Terms version |
+| `privacyNoticeVersion` | TEXT | Version of the privacy notice presented and accepted |
+| `createdAt` / `updatedAt` | TIMESTAMPTZ | |
+
+Legal fields are assigned server-side when creating an account and are not exposed
+as client input fields. Accounts from before the migration stay `NULL`: no
+retroactive acceptance is recorded that did not happen.
+
+## `session`
+
+| Column | Type | Notes |
+| --- | --- | --- |
+| `id` | TEXT PK | |
+| `expiresAt` | TIMESTAMPTZ | |
+| `token` | TEXT NOT NULL | Unique; used in `Authorization: Bearer` |
+| `ipAddress` / `userAgent` | TEXT | |
+| `userId` | TEXT → user | CASCADE delete |
+| `createdAt` / `updatedAt` | TIMESTAMPTZ | |
+
+Go resolves the session with a lookup by `token` and `expiresAt > now()`.
+
+## `account`
+
+Provider accounts (OAuth / credentials):
+
+| Column | Notes |
+| --- | --- |
+| `issuer` | Required. Credential accounts use `local:credential`. OAuth uses the provider issuer (Google: `https://accounts.google.com`) or `local:oauth:<providerId>`. Unique with `accountId`. |
+| `accountId` / `providerId` | Provider identity. For email/password, `accountId` equals `"user".id`. |
+| `userId` | Owner |
+| `accessToken` / `refreshToken` / `idToken` | Secrets |
+| `accessTokenExpiresAt` / `refreshTokenExpiresAt` | |
+| `scope` / `password` | |
+| timestamps | |
+
+## `verification`
+
+Email/OTP verification tokens: `identifier`, `value`, `expiresAt`.
+
+## `subscription`
+
+Subscriptions from the Better Auth / Stripe plugin:
+
+| Column | Notes |
+| --- | --- |
+| `plan` / `referenceId` | Plan and reference (e.g. org/profile) |
+| `stripeCustomerId` / `stripeSubscriptionId` | |
+| `status` | Default `incomplete` |
+| `periodStart` / `periodEnd` | |
+| `trialStart` / `trialEnd` | |
+| `cancelAtPeriodEnd` / `cancelAt` / `canceledAt` / `endedAt` | |
+| `seats` / `billingInterval` | |
+| `stripeScheduleId` | |
+
+## Usage rules
+
+- Do not mutate these tables from product-domain GORM.
+- Login/session = Better Auth API (`/api/auth/*` in Next).
+- The product uses `users.id` after the identity mirror.
