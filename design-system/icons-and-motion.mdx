@@ -1,0 +1,81 @@
+---
+title: "Icons and motion"
+description: "The Icon component + Hugeicons, sizes, and animation durations."
+---
+
+## Icons
+
+```tsx
+import { Icon } from '@agata/ui/components/icon';
+import { CheckListIcon, Wallet01Icon } from '@hugeicons/core-free-icons';
+
+<Icon icon={CheckListIcon} size="sm" />
+```
+
+| Rule | Detail |
+| --- | --- |
+| Renderer | `@agata/ui/components/icon` → `<Icon icon={…} />` (Astryx adapter over `@hugeicons/react`) |
+| Library | `@hugeicons/core-free-icons` |
+| Type in registries | `IconComponent` |
+| Typical size in dense UI | 1rem (`size="sm"`) |
+| Sizes | Use Astryx `xsm`, `sm`, `md`, `lg`, or `xl`; use `xstyle` only for composition-specific layout |
+| Colors | Use Astryx semantic colors such as `secondary`, `accent`, or `inherit` |
+| Inside buttons | Align with the Button size (`data-icon`) |
+| Runtime color | Put the runtime color on the owning native container and use `color="inherit"` |
+| Accessibility | When the icon is the only content, put `aria-label` on the control |
+
+Do not use `lucide-react` or `@phosphor-icons/react` on web. Mobile may keep its own native icon stack.
+
+## Motion
+
+CSS tokens:
+
+| Token | Use |
+| --- | --- |
+| `--dur-instant` (80ms) | Micro feedback |
+| `--dur-fast` (140ms) | Subtle hover |
+| `--dur-base` (200ms) | Default UI |
+| `--dur-slow` (320ms) | Panels |
+| `--dur-deliberate` (480ms) | Larger transitions |
+| `--ease-out` / `spring` / `standard` | Curves |
+
+### Good practice
+
+- Respect `prefers-reduced-motion` whenever you add custom animation.
+- Prefer opacity/transform over layout thrash.
+- Do not animate skeletons in an aggressive loop.
+
+Shared keyframes live in `packages/ui/styles/keyframe-animations.css`.
+
+### Route transitions
+
+View Transitions are stable in React 19.3. The authenticated app still uses
+them through Next.js 16.3 `ViewTransition` and `transitionTypes`. It needs no
+flag in `next.config.ts` and no manual calls to
+`document.startViewTransition()`.
+
+Routes opt into motion based on navigation intent:
+
+| Type | Use | Movement |
+| --- | --- | --- |
+| `nav-forward` | List or summary → detail | Content advances horizontally |
+| `nav-back` | Detail → parent, breadcrumb, or return after delete | Reverse direction |
+| `nav-peer` | Apps, tabs, or same-level destinations | Crossfade, no displacement |
+
+The shared boundary lives in
+`apps/app/shared/components/studio-route-transition.tsx`; each participating
+product segment mounts it from `template.tsx`, inside its persistent layout.
+Links and `router.push`/`router.replace` calls declare the type via
+`transitionTypes`. Untyped navigation, browser history, refreshes, and
+query-only changes stay instant.
+
+Operational rules:
+
+- Keep the shell, sidebar, and chrome outside the animated boundary.
+- Do not add the boundary to Agent's persistent layout: the chat host must not
+  unmount when the conversation changes.
+- Keep durations under 300ms and use only `opacity` and `transform` for routes.
+- Zero out View Transition pseudo-element duration and delay under
+  `prefers-reduced-motion: reduce`.
+- With prefetch disabled, do not rely on shared morphs between list and detail:
+  the pair only exists when the destination resolves in the same commit.

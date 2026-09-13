@@ -1,0 +1,92 @@
+---
+title: "Typeahead and searchable popups"
+description: "Choose the native Astryx search field or Agata's narrow popup adapter by interaction."
+---
+
+Agata uses three explicit searchable-selection patterns:
+
+| Interaction | Component |
+| --- | --- |
+| Input-shaped, single selected value | `Typeahead` |
+| Multiple selected values | `MultiSelector` |
+| Search inside a popup opened by an arbitrary button, or inside an existing overlay | `Combobox` |
+
+Do not use `Combobox` as a generic input field or multi-select. Do not use `Command` for entity picking.
+
+## Typeahead
+
+Import the thin Astryx boundary and create a static source for local data. Use a custom `SearchSource` for remote data.
+
+```tsx
+import {
+  createStaticSource,
+  Typeahead,
+} from '@agata/ui/components/typeahead';
+
+const source = createStaticSource(
+  projects.map((project) => ({ id: project.id, label: project.name }))
+);
+
+<Typeahead
+  label="Project"
+  searchSource={source}
+  value={selectedProject}
+  onChange={setSelectedProject}
+  placeholder="Search projects…"
+  hasEntriesOnFocus
+/>
+```
+
+Typeahead owns its label, description, disabled/loading state, validation, empty result copy, width, and StyleX layout. Use `TypeaheadItem` from the same module for rich rows.
+
+When a value is already selected, Typeahead seeds the input with that label and searches. A plain `createStaticSource` then shows only that match. Form pickers (`ProjectFormTypeahead`, `TagFormTypeahead`) use `createFormTypeaheadSource` so opening the field still lists every option until the query changes.
+
+## MultiSelector
+
+For bounded searchable multiple selection, use the direct `MultiSelector` contract documented on the [Selector page](/design-system/select). It owns the selected string array, search input, trigger summary, and option indicators.
+
+## Combobox popup adapter
+
+The remaining Combobox is deliberately narrow. Every popup tree passes an explicit `trigger`; Astryx Popover owns positioning, focus, light dismiss, and portal behavior.
+
+```tsx
+<Combobox
+  items={projects}
+  itemToStringLabel={(project) => project.name}
+  value={selectedProject}
+  onValueChange={setSelectedProject}
+  trigger={<Button label="Add project" />}
+  width="18rem"
+>
+  <ComboboxInput placeholder="Search projects…" />
+  <ComboboxList>
+    {(project) => (
+      <ComboboxItem key={project.id} value={project}>
+        {project.name}
+      </ComboboxItem>
+    )}
+  </ComboboxList>
+  <ComboboxEmpty>No projects found.</ComboboxEmpty>
+</Combobox>
+```
+
+Inline mode is reserved for a searchable list already hosted by another overlay, such as FilterBar's second step.
+
+```tsx
+<Combobox inline open items={options} onValueChange={onPick}>
+  <ComboboxInput placeholder="Filter…" />
+  <ComboboxList>{/* items */}</ComboboxList>
+  <ComboboxEmpty>No results.</ComboboxEmpty>
+</Combobox>
+```
+
+The adapter has no `Trigger` or `Content` slots, custom positioning, `defaultValue`, input-as-control, chips, clear, `render`, or native-button modes. Pass `appTheme` to `Combobox` when the popup cannot inherit the active app theme. Use `contentXstyle` for popup-content layout and `xstyle` on `ComboboxList`, `ComboboxItem`, or `ComboboxEmpty` for owned native composition styles.
+
+## Review checklist
+
+- [ ] Typeahead for an input-shaped single value
+- [ ] MultiSelector for multiple values
+- [ ] Combobox only for arbitrary-trigger or inline popup search
+- [ ] Exact accessible labels and textual search values
+- [ ] Raw StyleX values on Astryx `xstyle` props
+- [ ] Empty result copy and keyboard navigation preserved

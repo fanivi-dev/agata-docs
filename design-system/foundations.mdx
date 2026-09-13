@@ -1,0 +1,88 @@
+---
+title: "Foundations"
+description: "The official Astryx color, type, spacing, radius, elevation, and motion foundations."
+---
+
+Agata adopts the [Astryx token catalog](https://astryx.atmeta.com/docs/tokens)
+directly. Astryx Neutral supplies values; Agata does not maintain a parallel
+palette or scale.
+
+## Color
+
+Use semantic color tokens before categorical ones:
+
+| Family | Examples | Use |
+| --- | --- | --- |
+| Surfaces | `--color-background-body`, `--color-background-surface`, `--color-background-card`, `--color-background-popover` | Page and elevated surfaces |
+| Content | `--color-text-primary`, `--color-text-secondary`, `--color-icon-primary`, `--color-icon-secondary` | Text and icons |
+| Accent | `--color-accent`, `--color-accent-muted`, `--color-on-accent` | Actions, selection, and app identity |
+| Borders | `--color-border`, `--color-border-emphasized` | Separators and stronger outlines |
+| Status | `--color-success`, `--color-warning`, `--color-error` and their muted/on-color partners | Product state |
+| Categorical | `--color-background-*`, `--color-border-*`, `--color-icon-*`, `--color-text-*` | Data and domain distinctions |
+
+Do not introduce raw neutral ramps or feature-owned status variables.
+
+## Typography
+
+Use Astryx `Text` and `Heading` semantic props first. StyleX leftovers use:
+
+- `typographyVars`: body, heading, and code font families.
+- `textSizeVars`: `--font-size-4xs` through `--font-size-5xl`.
+- `fontWeightVars`: normal, medium, semibold, and bold.
+- `typeScaleVars`: semantic heading, body, supporting, label, and code sizes,
+  weights, and line heights.
+
+The base body size is `--font-size-base` (14px). Product code does not own a
+second type scale.
+
+## Spacing and element size
+
+`spacingVars` is a 4px-based scale from `--spacing-0` through
+`--spacing-12`, including the 2px and 6px half steps. Prefer Astryx layout
+props (`gap`, padding, `Stack`, `Layout`, `FormLayout`) over consuming the
+variables manually.
+
+`sizeVars` defines the official control heights:
+
+| Token | Value | Product default |
+| --- | --- | --- |
+| `--size-element-sm` | 28px | C2 default via `SizeProvider` |
+| `--size-element-md` | 32px | Explicit `size="md"` only |
+| `--size-element-lg` | 36px | Explicit `size="lg"` (marketing CTAs) |
+
+## Borders and focus
+
+`borderVars['--border-width']` is the standard border width. Visible keyboard
+focus comes from `focusVars`; do not create an Agata ring or focus-shadow token.
+
+## Radii
+
+Use the radius for the role, not an arbitrary size:
+
+| Token | Role |
+| --- | --- |
+| `--radius-none` | Square geometry |
+| `--radius-inner` | Nested details |
+| `--radius-element` | Controls |
+| `--radius-container` | Cards and grouped surfaces |
+| `--radius-page` | Large page surfaces |
+| `--radius-chat` | Chat surfaces |
+| `--radius-full` | Pills and circles |
+
+## Elevation
+
+Use `--shadow-low`, `--shadow-med`, or `--shadow-high` for outer elevation.
+Input interaction and validation use the official `--shadow-inset-*` tokens.
+
+## Motion
+
+Use `durationVars` (`fast`, `medium`, and `slow`, each with min/default/max)
+and `easeVars['--ease-standard']`. Motion must communicate state or spatial
+continuity; do not add a second duration or easing scale.
+
+## Layout measurements and safe areas
+
+Breakpoints, page ceilings, sidebar widths, reading measure, and safe-area
+insets are layout contracts rather than Astryx design tokens. Keep them local
+to the owning layout or integration. Use `env(safe-area-inset-*, 0px)` directly
+where needed.
