@@ -1,0 +1,59 @@
+---
+title: "Credits"
+description: "Monthly pool per profile, reserve-and-confirm flow, and what is not charged."
+---
+
+Every turn the backend accepts consumes **1 credit**. **The model, the user, and the number of tools Eve calls do not change that cost.** Free credits come from the owner's shared pool. Paid credits come from the profile.
+
+This is what makes growing from 11 to a 173-name catalog free in credits: it costs tokens and latency (more tool-loop steps per turn), not pool. Progressive routing limits the names seen on each model step; it does not change credit accounting.
+
+## Pool by plan
+
+| Plan | Credits / month | Scope |
+| --- | ---: | --- |
+| Free (`base`) | 100 | Owner, across all Free profiles |
+| Pro | 500 | Profile |
+| Business | 2,000 | Profile |
+
+A paid trial uses the full pool of its selected plan for 14 days. The pool **does not roll over**. Pro and Business can add recurring packs of 500 credits per month from Billing.
+
+## Reservation and confirmation
+
+Before starting Eve, the BFF:
+
+1. Asks Go for an **idempotent reservation by `messageId`**.
+2. Persists the pending message.
+3. Confirms the reservation.
+4. Only then sends the turn to Eve.
+
+An abandoned reservation expires and restores the credit. A failure after acceptance **does not** return it.
+
+Go applies the gate with its local projection and publishes consumption via outbox to Metronome (`event_type: agata_agent_message`, `transaction_id = messageId`). **Metronome is the canonical ledger.** During an external outage, overage is not granted.
+
+### Realtime voice
+
+Voice keeps the same per-utterance rule, adapted to the WebSocket:
+
+1. Before connecting, the client obtains microphone permission and creates a reservation for the first utterance.
+2. `POST /api/agent/voice/token` re-checks chat, membership, and an active reservation before issuing the client secret.
+3. When VAD closes the utterance, capture stops and that reservation is confirmed.
+4. Capture only starts again after the reply finishes and a new reservation exists.
+
+Hanging up without speaking releases the reservation. An abandoned reservation also expires in Go. The session ends when credits run out, after completing the already-paid reply.
+
+## What is not charged
+
+Responding to an **approval** does not reserve a new credit. Resuming a parked tool continues the turn the user already paid for; charging it again would bill the same exchange twice.
+
+On the client this is explicit: `handleApprovalRespond` calls `agent.send({ inputResponses })` directly and **does not** go through `acceptEveChatMessageAction`.
+
+## Exhaustion
+
+When the pool is empty, the API throws `PLAN_LIMIT` with `limit_key: agent_credits_per_month`.
+
+- **Free** → Pro is suggested.
+- **Paid plans** → the owner sees **Add credits**; everyone else must contact the owner.
+
+The UI maps the error with `agentTurnErrorKey`, which distinguishes owner from member via `canManageAddons`.
+
+See [Platform → Plans and billing](/platform/billing-plans) and [Database → Agent](/database/agent).

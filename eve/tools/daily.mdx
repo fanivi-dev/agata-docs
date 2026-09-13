@@ -1,0 +1,86 @@
+---
+title: "Daily"
+description: "Notebook and recurring activities. `daily` section."
+---
+
+21 tools across Notebook, Activities, Week plan, one dispatcher, and bounded bulk create, gated on the **`daily`** section.
+
+## Notebook — `notebook.ts`
+
+| Tool | R/W | Endpoint |
+| --- | --- | --- |
+| `list_notes` | R | `GET /notebook/profiles/{ws}/notes` |
+| `get_note` | R | `GET .../notes/{noteId}` |
+| `create_note` | W | `POST .../notes` |
+| `update_note` | W | `PATCH .../notes/{noteId}` |
+| `list_note_groups` | R | `GET /notebook/profiles/{ws}/groups` |
+| `create_note_group` | W | `POST .../groups` |
+
+<Warning>
+**Note bodies are read-only in v1.** `PUT .../notes/{noteId}/document` is excluded: it requires a ProseMirror `contentJson` tree and an optimistic `version`, and it is not safe for a model to author. Eve can read a note's text and manage its metadata (title, type, status, group, pinned, archived), but cannot write inside it.
+</Warning>
+
+`list_notes` returns excerpts; `get_note` adds the full `plainText`.
+
+Valid values, per the table CHECK constraint:
+
+- **type**: `note` (default), `blog`, `x_post`, `x_thread`, `report`, `research`.
+- **status**: `draft` (default), `review`, `ready`, `published`.
+
+Pin and archive stay on `update_note` (`pinned` / `archived`); the handler translates them to nullable timestamps in Go. Group update / delete go through `manage_daily`.
+
+## Activities — `activities.ts`
+
+| Tool | R/W | Endpoint |
+| --- | --- | --- |
+| `list_activities` | R | `GET /activities/profiles/{ws}` |
+| `get_activity` | R | `GET .../{activityId}` |
+| `list_activity_logs` | R | `GET .../{activityId}/logs` |
+| `create_activity` | W | `POST /activities/profiles/{ws}` |
+| `update_activity` | W | `PATCH .../{activityId}` |
+| `log_activity` | W | `POST .../{activityId}/logs` |
+
+Activities can be recurring habits or time blocks. `list_activities` returns `kind`; only `kind: "habit"` accepts logs and provides `currentStreak`, `longestStreak`, and `completionRate`. Blocks occupy the agenda and are not checked off. `get_activity` adds schedule and reminder flags; `list_activity_logs` answers "how many times did I do X?".
+
+**`log_activity` is the domain's key tool**: it records whether a habit happened on a given day. It is the answer to "I went for a run today" or "mark yesterday's meditation". On a bulk request, Eve skips `kind: "block"` rows and explains that to the user.
+
+- `completed: true` counts toward the streak.
+- `canceled: true` marks a deliberate skip, which **does not** break the streak.
+
+`create_activity` requires `name`, `startTime`, `endTime`, and `color`: all four are required by the API.
+
+<Note>
+The endpoint requires `dateMs`. The tool accepts `dateKey` and the handler converts it to the epoch milliseconds of UTC midnight for that same key, same as the UI; the API persists that UTC date as the calendar day.
+</Note>
+
+## Dispatcher `manage_daily` — `manage_daily.ts`
+
+| Resource | Ops |
+| --- | --- |
+| `noteGroups` | update, delete (**approval**) |
+| `activityRecurrence` | update, pause, resume |
+| `activityReminders` | set |
+
+Prefer narrow tools for day-to-day notebook and activities.
+
+## Week plan — `weekplan.ts`
+
+| Tool | R/W | Purpose |
+| --- | --- | --- |
+| `get_week_plan` | R | Read one Monday-anchored week, including Later items and intent |
+| `create_week_plan_item` | W | Create one logical item on one to seven unique days, or Later; returns per-day receipts and errors |
+| `update_week_plan_item` | W | Change exact item fields or Task/Activity links |
+| `set_week_plan_item_done` | W | Mark done/reopen and report linked Task/Activity synchronization failures |
+| `manage_week_plan` | R/W · conditional approval | Intent, carry-over, reorder, trash/list-trash/restore, weekly repeat |
+
+Trash uses delete approval. Calendar visibility follows the item's date automatically. Restoring a deleted occurrence does not reactivate a paused weekly series. See [Week plan](/apps/week-plan).
+
+## Bulk create — `daily_bulk.ts`
+
+| Tool | R/W | Endpoint |
+| --- | --- | --- |
+| `bulk_create_notes` | W | `POST /notebook/.../notes/bulk-create` |
+| `bulk_create_note_groups` | W | `POST /notebook/.../groups/bulk-create` |
+| `bulk_create_activities` | W | `POST /activities/.../bulk-create` |
+
+Cap 50, partial success `{ ids, errors }`.

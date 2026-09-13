@@ -1,0 +1,72 @@
+---
+title: "Auth and sections"
+description: "From the Better Auth cookie to the Eve principal, and how the member's sections decide which tools exist."
+---
+
+Eve resolves **two** things for the active request: who is calling, and what they can touch.
+
+## Auth chain
+
+`agent/channels/eve.ts` tries three authenticators in order:
+
+1. **`agataBetterAuthEveAuth`** — the real one. Cookie → `GET /api/auth/get-session` → Eve principal.
+2. **`vercelOidc()`** — for internal invocations on Vercel.
+3. **`localDevWithoutCookie`** — only when there is no cookie. Deliberately **does not** mask a failed Better Auth attempt: if there was a cookie and it failed, the tools would see an empty principal.
+
+The Better Auth authenticator:
+
+1. Reads the cookie and resolves the session over HTTP (it does not import Next `server-only` modules).
+2. **Requires** the `x-agata-profile-id` header. Without it, 403.
+3. Verifies membership against `GET /api/profiles/:id/access`.
+4. Stamps only non-secret references and context onto the principal: the Better Auth session row id, `profileId`, `ianaTimeZone`, `email`, `name`, and **`allowedSectionIds`, `sectionAdminIds`, `profileRole`**. The bearer token is never serialized into Eve state; tools resolve the current unexpired token immediately before each Go request.
+
+The last three are what govern the gate.
+
+## The section gate
+
+Agata grants access by **section** to each member: `daily`, `work`, `health`, `nutrition`, `finance`, `library`, `goals`, `agent`.
+
+Each file in `agent/tools/` wraps its tools in `sectionToolset`:
+
+```ts
+export default defineDynamic({
+  events: {
+    'step.started': (_event, resolve) => {
+      return sectionToolset(resolve, 'finance', () => ({
+        list_finance_accounts: defineTool({ /* … */ }),
+      }));
+    },
+  },
+});
+```
+
+If the member does not have the section, the resolver returns `null` and **those tools do not exist** on that model step: they never reach the prompt, and the model cannot attempt a call the API would reject with 403.
+
+`hasSection` mirrors `requireGoDomainServerAccess` in the app exactly: an empty section list denies, and `agent` is always granted (that is why the `platform` toolset is always-on).
+
+<Note>
+The gate is a precision and prompt-size improvement, **not** the security boundary. The Go API still authorizes each request separately. A gate failure would expose a tool *name*, never the data.
+</Note>
+
+## Delete approval
+
+Destructive tools use `approveDeleteInSection(section)`, which mirrors `canDeleteInProfileSection`:
+
+- If the caller **cannot** delete in that section → `denied` with a reason the model can relay.
+- If they can → `user-approval`: pause the turn and wait for a person.
+
+It turns a confusing mid-conversation 403 into an explanation.
+
+## Per-member instructions
+
+`agent/instructions/20-sections.ts` reads **the same active principal** as the gate at `turn.started` and composes the prompt briefing: one block per granted section, plus a line naming the denied ones with the instruction to say *"that section is not enabled for you"* instead of *"Agata does not have that"*.
+
+A single source of truth: the prompt cannot describe a capability the tools do not have.
+
+## Refresh per step
+
+Tool resolvers run on `step.started`, while the section briefing refreshes on `turn.started`. Each model call rebuilds the catalog from the active principal's permissions, so a revocation is reflected on the next step and the next turn's prose cannot retain a stale grant.
+
+When progressive routing is enabled, section access is applied before capability activation. Screen context can activate one relevant group and `search_agent_tools` can activate bounded additional groups for the current turn, but neither can grant a section or bypass the API. Bulk groups require an explicitly plural request. Activation state is reset at the next `turn.started`.
+
+This scope also keeps the handler and approval policy associated with the same definition that announces the tool. Eve does serialize durable callback references for replay, so `sectionToolset` binds both live and durable callbacks to the catalog name: an identity mismatch is blocked before any write. The Go API remains the authorization boundary and re-checks every request.

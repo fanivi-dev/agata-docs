@@ -1,0 +1,82 @@
+---
+title: "Models"
+description: "Eve's invisible three-route policy via AI Gateway."
+---
+
+Eve has **no model picker**. The route is chosen on the server from the turn, not from the client.
+
+`EVE_MODEL_ROUTING_MODE` is the rollback switch:
+
+| Mode | Behavior |
+| --- | --- |
+| `routed` | Routine → Grok 4.1 Fast Non-Reasoning. EN/ES ambiguity, any write-like request, multi-write, cross-domain work, money, destructive/approval work, invalid arguments, or first tool failure → Fast Reasoning. Three-domain synthesis or continued failure → one Grok 4.6 rescue. |
+| `shadow` | Same decision is logged; every step still uses Grok 4.6. |
+| `control` (default) | Grok 4.6 on every step until the provider-backed rollout gate passes. |
+
+Provider outage failover uses a monotonic Gateway `models` order independently: routine may escalate to reasoning/frontier, reasoning may use reasoning/frontier, and frontier/control either stays frontier or fails closed. A high-risk route never falls back to the routine model. Failover cannot change the public credit cost.
+
+```ts title="apps/app/agent/agent.ts"
+import { defineAgent, defineDynamic } from 'eve';
+import {
+  decideAgentModel,
+  gatewayModelOptions,
+  modelTurnId,
+} from './lib/model-policy/resolve-from-context.ts';
+
+export default defineAgent({
+  model: defineDynamic({
+    events: {
+      'turn.started': (event, ctx) =>
+        gatewayModelOptions(
+          ctx,
+          decideAgentModel(ctx, modelTurnId(event, ctx.session.id))
+        ),
+      'step.started': (event, ctx) =>
+        gatewayModelOptions(
+          ctx,
+          decideAgentModel(ctx, modelTurnId(event, ctx.session.id))
+        ),
+    },
+  }),
+});
+```
+
+## Source of truth
+
+`apps/app/agent/lib/model-policy/catalog.ts` holds the live-verified slugs. `models.ts` still exports the control / voice / dictation constants used by credit audit and the composer.
+
+| Constant | AI Gateway id | Use |
+| --- | --- | --- |
+| Routine route | `xai/grok-4.1-fast-non-reasoning` | Safe single reads |
+| Reasoning route | `xai/grok-4.1-fast-reasoning` | Writes, ambiguity, multi-write, cross-domain work, money, destructive/approval, tool recovery |
+| `AGENT_MODEL_ID` | `xai/grok-4.6` | Control, shadow, and bounded frontier rescue |
+| `AGENT_VOICE_MODEL_ID` | `xai/grok-voice-think-fast-2.0` | Realtime voice conversation |
+| `AGENT_TRANSCRIPTION_MODEL_ID` | `xai/grok-stt` | Composer STT dictation |
+
+The credit reservation stores a billing-policy placeholder, not evidence of which provider model ran. The privacy-safe `eve.turn_summary.v1` ledger records the requested route and the actual model ids observed from `step.started`; usage and cost remain nullable when `step.completed` does not provide them. There is no client preference header.
+
+The pre-step classifier combines the current screen group, EN/ES intent patterns, and canonical capability risk when a tool name is explicit. Unknown write-like intent defaults to reasoning. Observed tool outcomes can escalate later steps, but post-tool counts are not the first-turn complexity signal. Per-turn rescue state is removed on completed, failed, and cancelled events; a 30-minute TTL and 512-entry cap are the fallback guard.
+
+## Credits
+
+The model **does not** change the credit cost: 1 credit per accepted turn (chat or voice utterance). Token cost goes to the provider via AI Gateway. See [Credits](/eve/runtime/credits).
+
+## Images
+
+The channel `uploadPolicy` accepts `image/*` up to 5 MB, and the composer up to 4 attachments. If the selected route stopped being multimodal, the channel and the composer would need to be adjusted together.
+
+The profile-wide storage pool follows the effective plan: **50 MB Free, 250 MB Pro, or 1 GB Business** under the Blob prefix `profiles/{profileId}/agent/`. The usage modal in the AI credits popover shows consumption and can delete all Agent images in the profile.
+
+## Dictation
+
+The composer uses `AGENT_TRANSCRIPTION_MODEL_ID` (`xai/grok-stt`) to convert speech to text via AI Gateway. Recording stops automatically at one minute, accepts up to 5 MB, and requires a session and profile access.
+
+The transcription is added to the draft: the audio is not persisted, is not sent as an attachment, and does not consume an Agent turn or credit.
+
+## Realtime voice
+
+When the composer draft is empty, the right-hand button starts a voice session with `AGENT_VOICE_MODEL_ID` via AI Gateway WebSocket (`experimental_useRealtime`). Next only issues a 30-second connection token (`POST /api/agent/voice/token`) after verifying an active reservation; audio does not pass through the app server.
+
+The local session maximum is **5 minutes**, with a 2-minute idle timeout. Voice remains **one Agent credit per accepted utterance**. Minute allowances are not published until Gateway can supply an authoritative session duration.
+
+Eve tools are exposed to the voice model with two meta-tools (`search_agent_tools` / `run_agent_tool`) over the registry in `agent/lib/voice/`, so the Gateway payload limit is not exceeded. Search returns exact names and compact input schemas; arguments are re-validated on the server. Approvals are kept by `toolCallId`, including parallel calls. Each user utterance (VAD) confirms 1 credit with `modelId: AGENT_VOICE_MODEL_ID`; the microphone is muted while the next turn is confirmed and reserved, without destroying its `MediaStream`. See [Architecture](/eve/runtime/architecture#realtime-voice).

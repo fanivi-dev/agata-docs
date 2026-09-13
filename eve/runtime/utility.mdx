@@ -1,0 +1,54 @@
+---
+title: "Utility: privacy, receipts, and memory"
+description: "How Eve closes loops: private chats, action receipts, screen context, explicit memory, and local metrics."
+---
+
+Eve is not only a reactive chat: every turn should **resolve a request**, leave a verifiable result, and respect user privacy and control.
+
+## Privacy and ownership
+
+- **New** chats start as `private` (author only).
+- The author can **share** with the profile (`visibility = profile`); other members see the history as **read-only** (no mutating, no voice, no persisting turns).
+- Existing chats at migration `000039` were left shared so access was not broken.
+- Schema: [Database → Agent](/database/agent).
+
+## Receipts and visible trust
+
+Every successful write returns a structured `receipt` (`action`, `entityType`, `entityId`, `status`, `asOf`, `deepLink`, optionally `changedFields`, `reversible`, and `restoreTool`). Bounded multi-writes return a `receipts` array plus explicit partial failures. A central durable callback wrapper fills the common receipt contract for older domain handlers and blocks a replayed tool-name mismatch before any write.
+
+In production the chat turns the receipt and validated domain output into useful result UI: a singular action/entity card, bounded collection rows, a grouped plan/search surface, a summary, or an explicit partial outcome. The client displays only values confirmed by accepted input or authorized output, never internal ids as labels. A straightforward success does not need a second prose confirmation; text remains for interpretation, warnings, assumptions, failures, and multi-tool synthesis. Internal reasoning (`reasoning.*`) **is not** rendered. In-chat undo remains limited to `restore_task` and `restore_library_item`.
+
+Per-response feedback reuses the `agent` domain without attaching prompts, answers, tool payloads, excerpts, or reasoning. Positive feedback records only the pseudonymous turn correlation and rating. Negative feedback may also include one localized reason category and a short comment written explicitly by the user.
+
+## Screen context
+
+`AgentScreenContextProvider` exposes `{ area, path, view, entityType, entityId, label }` (never document bodies or amounts). It is re-injected every turn as `clientContext.screen` and **is not** persisted as memory.
+
+Empty prompts are personalized by screen and granted sections. The shell Agent panel (sidebar / header button) opens the side chat without an “Ask Eve” button on every detail.
+
+## Explicit memory
+
+Table `eve_user_memories` per `(profile, user)`. CRUD in the UI (Memory dialog) and tool `manage_eve_memory` (**always** with approval). It is never inferred from history. Bounded injection via a dynamic instruction (`instructions/30-memory.ts`).
+
+In the UI, each memory is **Preference**, **Context**, or **Constraint** (visible selector with a type hint). The dialog shows usage against the cap (50), an empty state with a CTA, a character counter while editing, and a notice not to store secrets — not an aggressive banner.
+
+## Voice parity
+
+Section + memory instructions, the same receipts/approvals, and voice-session persistence with structured tool events (a reopened history equivalent to written chat).
+
+## Local metrics
+
+No external telemetry. From Postgres:
+
+```bash
+bun --filter app eve:metrics
+bun --filter app eve:metrics -- --workspace <uuid> --since 7d --json
+```
+
+The report aggregates per-tool and per-capability-group outcomes, calls and steps per completed, failed, or cancelled turn, time to first tool, capability searches/activations, duplicate calls, write receipt coverage, `action.result` success/error, re-prompts, turn-close time, deduplicated denied approvals, and restores. Windowed reports load the complete event history for every turn that intersects the window, then include only turns whose terminal event is inside it; missing duration, usage, and cost stay `null`, never synthetic zero. Raw reasoning is neither persisted nor reported.
+
+The runtime also emits `eve.turn_summary.v1`: a content-free, pseudonymous record with route, requested and actual model ids, provider/failover, nullable token usage and cost, terminal outcome, latency, capability-group counts, approval counts, retries, compaction count, session-limit requests/recovery, and nullable billing scope/version. Multi-step turns aggregate all observed steps.
+
+## Capability evidence
+
+The 2026-08-31 capability scorecard evaluated bounded document input and semantic rich-text mutation. Neither was selected: the privacy-safe ledger has no prompt content and current support/product evidence did not provide the three anonymized observed examples required by the gate. Reliability work can ship without manufacturing demand. A future capability needs a separate approved plan after evidence is collected; document input must remain read-only context, and rich-text writes must be API-owned semantic transforms with expected-version conflicts rather than model-authored ProseMirror JSON.
