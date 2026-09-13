@@ -1,0 +1,115 @@
+---
+title: "Database"
+description: "Agata PostgreSQL: layout, conventions, table map, and reference by domain."
+---
+
+Agata persists the product in **a single PostgreSQL database** (PlanetScale cluster `agata`, database `postgres`), schema **`public`**.
+
+<Tip>
+  DDL source of truth: `apps/api/db/migrations/*.up.sql`. This tab translates that SQL into documentation that is readable for humans and LLMs.
+</Tip>
+
+## Quick tour
+
+| You want to… | Go to… |
+| --- | --- |
+| Understand layout, URLs, and extensions | This page |
+| Soft delete, UUIDs, cents, date keys | [Conventions](/database/conventions) |
+| How to apply migrations | [Migrations](/database/migrations) |
+| users/profiles columns | [Platform](/database/platform) |
+| Tasks and documents | [Tasks](/database/tasks) |
+| Money | [Finance](/database/finance) |
+| ProseMirror notes | [Notebook](/database/notebook) |
+
+## Layout
+
+| Layer | Value |
+| --- | --- |
+| Database | `postgres` (`DATABASE_URL` pathname `/postgres`) |
+| Schema | `public` |
+| Product PKs | UUID (`gen_random_uuid()`) |
+| Auth (Better Auth) | Own tables; `"user".id` is **TEXT** |
+| Migration metadata | `agata_schema_migrations` |
+
+### Connections
+
+```txt
+# Runtime (pooler, e.g. 6432)
+DATABASE_URL=postgres://user:pass@host:6432/postgres?sslmode=require
+
+# DDL (direct, e.g. 5432)
+MIGRATE_DATABASE_URL=postgres://user:pass@host:5432/postgres?sslmode=require
+```
+
+No custom `search_path` is needed.
+
+### Extensions
+
+| Extension | Use |
+| --- | --- |
+| `pgcrypto` | UUIDs |
+| `pg_trgm` | Fuzzy search (tasks name, tags, …) |
+
+## Conceptual diagram
+
+```mermaid
+erDiagram
+  users ||--o{ profile_members : membership
+  profiles ||--o{ profile_members : has
+  profiles ||--o{ profile_projects : has
+  profile_projects ||--o{ tasks : contains
+  tasks ||--|| task_documents : body
+  profiles ||--o{ notes : has
+  notes ||--|| note_documents : body
+  profiles ||--o{ finance_transactions : has
+  users ||--o| better_auth_user : "auth_user_id"
+```
+
+(`better_auth_user` = table `"user"`.)
+
+## Map by migration
+
+| Migration | Domain |
+| --- | --- |
+| `000001` | [Platform core](/database/platform) |
+| `000002` | [Better Auth](/database/better-auth) |
+| `000003` | Blobs, tags, projects (in platform) |
+| `000004` | [Tasks](/database/tasks) |
+| `000005` | [Goals · Pomodoro · Activities · Library · Health · Nutrition · Reminders](/database/domains) |
+| `000006` | [Notebook](/database/notebook) |
+| `000007` + `000010` | [Finance](/database/finance) |
+| `000009` | [Notifications](/database/notifications) |
+| `000044` | [Week plan](/database/week-plan) |
+
+~**79** application tables (+ migrate metadata).
+
+## In this tab
+
+<CardGroup cols={2}>
+  <Card title="Conventions" icon="ruler" href="/database/conventions">
+    Soft delete, JSONB, money, date keys, dual users.
+  </Card>
+  <Card title="Migrations" icon="timeline" href="/database/migrations">
+    Up/down, dev reset, PR checklist.
+  </Card>
+  <Card title="Platform" icon="building" href="/database/platform">
+    users, profiles, members, audit, tags, projects.
+  </Card>
+  <Card title="Tasks" icon="list-check" href="/database/tasks">
+    tasks, documents, comments, counter triggers.
+  </Card>
+  <Card title="Finance" icon="wallet" href="/database/finance">
+    Accounts, tx in cents, debts, budgets.
+  </Card>
+  <Card title="Notebook" icon="notebook" href="/database/notebook">
+    notes + versioned note_documents.
+  </Card>
+</CardGroup>
+
+## How we document each table
+
+1. **Purpose**  
+2. **Columns** (type, null, default, FK, notes)  
+3. Relevant **indexes / constraints**  
+4. **Lifecycle** (soft delete, triggers)  
+5. **Who writes** (Go domain / feature)

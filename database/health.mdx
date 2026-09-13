@@ -1,0 +1,63 @@
+---
+title: "Health"
+description: "Check-ins, metrics, exercise routines, and sessions."
+---
+
+Health data is **shared in the profile**. Tables carry `user_id` as author (who created the record); listings and mutations filter by `profile_id`. Exception: check-in UPSERT still resolves by `(profile_id, user_id, date_key)` so each member has their daily row, but LIST of check-ins is profile-wide.
+
+## Check-ins
+
+### `health_checkins`
+
+| Column | Notes |
+| --- | --- |
+| `profile_id` / `user_id` | |
+| `date_key` | Unique with profile+user |
+| `sleep_quality` | INT, 1 (poor) to 3 (good) |
+| `day_rating` / `energy` / `mood` | INT, 1 to 3 |
+| `water_ml` | |
+| `notes` | |
+
+Indexes: unique `(profile_id, user_id, date_key)`; profile-wide listing `idx_health_checkins_profile_updated` on `(profile_id, updated_at DESC)`.
+
+## Metrics
+
+### `health_metric_definitions`
+
+| Column | Notes |
+| --- | --- |
+| `name` / `key` / `unit` | |
+| `value_type` | Default `number` |
+| `color` / `is_archived` / `is_system` | |
+
+Indexes: `(profile_id, user_id)`; active listing `idx_health_metric_defs_profile_name_active` on `(profile_id, name) WHERE is_archived = false`.
+
+### `health_metric_entries`
+
+| Column | Notes |
+| --- | --- |
+| `metric_id` | → definitions |
+| `recorded_at` / `value` | |
+| `note` / `source_date_key` | |
+
+## Routines and sessions
+
+### `health_exercise_routines`
+
+Template: `sport_label`, `summary`, `instructions`, `schedule_hint`, `target_duration_minutes`, `default_intensity`, archive/soft delete.
+
+### `health_exercise_routine_blocks`
+
+Ordered blocks: `kind`, targets (duration, distance, sets, reps), `intensity`, `target_metrics` JSONB.
+
+### `health_exercise_routine_attachments`
+
+Blob attachments **private** by default.
+
+### `health_exercise_sessions`
+
+Execution: optional `routine_id`, `performed_at`, duration, intensity, notes, soft delete.
+
+### `health_exercise_session_blocks`
+
+Results per block (targets vs actuals + `metrics` JSONB).

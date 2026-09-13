@@ -1,0 +1,46 @@
+---
+title: "Library"
+description: "library_items, subitems, collections, and links."
+---
+
+The list/detail API exposes `createdBy` (UUID → `users`) for items and collections.
+
+## `library_items`
+
+| Column | Notes |
+| --- | --- |
+| `profile_id` / `created_by` | |
+| `kind` | Media/item type |
+| `primary_url` / `normalized_primary_url` | URL is optional; items created without one store an empty `primary_url`. |
+| `title` / `note` | |
+| `status` | Default `saved` |
+| `source_label` / availability fields | |
+| email reminder fields | offsets, job, scheduled_at |
+| `completed_at` | |
+| thumbnail / oembed fields | |
+| `search_blob` | |
+| `media_creator_name` / `duration_ms` | |
+| `archived_at` | |
+| `visibility` | `members` \| `followers` \| `public`. Default `members`. Public catalog: `/@handle/library/:id`. |
+| blob metadata | url, pathname, store, etag, content_type, size |
+| soft delete | `DELETE .../items/:id`; hard-delete from trash via `DELETE .../items/:id/permanent` |
+
+## `library_item_subitems`
+
+Episodes/parts: `season_number`, `episode_number`, `part_number`, `position`, status, duration, soft delete.
+
+## `library_collections`
+
+| Column | Notes |
+| --- | --- |
+| `name` / `description` | |
+| `scope` | Legacy column; collections are profile-shared. Prefer `profile` when writing. |
+| `created_by` | |
+| `visibility` | `members` \| `followers` \| `public`. Default `members`. Public catalog: `/@handle/collections/:id`. `itemCount` on the public DTO is visible items only. |
+| soft delete | |
+
+Collection list/get project `itemCount` (links to non-deleted `library_items`). `createdBy` comes on list and detail.
+
+## `library_collection_item_links`
+
+`(collection_id, item_id, position)` — collection membership. Collection item listings omit links whose item is soft-deleted.

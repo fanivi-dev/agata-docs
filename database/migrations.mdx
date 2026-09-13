@@ -1,0 +1,150 @@
+---
+title: "Migrations"
+description: "golang-migrate, file order, dev reset, and PR checklist."
+---
+
+## Location
+
+```txt
+apps/api/db/migrations/
+  000001_platform_core.up.sql
+  000001_platform_core.down.sql
+  …
+```
+
+Tooling: **golang-migrate**. Control table: `agata_schema_migrations`.
+
+## Current order
+
+| # | Name | Contents |
+| --- | --- | --- |
+| 001 | platform_core | users, workspaces, members, feedback, audit, billing audit |
+| 002 | better_auth | user, session, account, verification, subscription |
+| 003 | platform | blobs, tags, projects |
+| 004 | tasks | tasks + documents + task_count triggers |
+| 005 | domains | goals…nutrition (large file) |
+| 006 | notebook | notes / documents |
+| 007 | finance | full ledger |
+| 009 | scheduled_notifications | send queue |
+| 010 | finance_debt_groups | debt groups + `group_id` |
+| 011 | agent | agent |
+| 012 | eve_chat | eve chat |
+| 013 | drop_entity_visibility | drop `visibility` on notes/projects; scrub `defaultProjectVisibility` |
+| 014 | drop_nutrition_water_logs | drop `nutrition_water_logs` |
+| 015 | entity_assignees | `task_assignees` / `activity_assignees` / `reminder_assignees`; backfill tasks from `assigned_to` then drop column |
+| 016 | nutrition_assignees | meal/recipe/inventory/shopping/plan assignee junctions; backfill from `member_user_ids` then drop |
+| 017 | finance_categories_to_workspace_tags | finance categories → workspace tags |
+| 018 | perf_list_indexes | list indexes: health metric defs, checkins, invitations |
+| 019 | archive_done_tasks | backfill `archived_at` for existing `status = done` tasks |
+| 020 | archive_canceled_tasks | backfill `archived_at` for existing `status = canceled` tasks |
+| 021 | drop_task_recurrence | drop task recurrence columns + series unique index |
+| 022 | task_search_blob | `tasks.search_blob` + GIN FTS (name + document body) |
+| 023 | normalize_shared_links | canonical finance tag entity types + Pomodoro project links |
+| 024 | finance_planner | planner scenarios + scenario items (what-if projection) |
+| 025 | agent_credits_addons | extra capacity, monthly Agent credit projection, reservations, Metronome outbox and inbox |
+| 027 | eve_chat_pinned_at | Eve chat pin |
+| 028 | workspace_tags_domain_scope_general | `domain_scope` NOT NULL default `general`; unique (workspace, scope, name) |
+| 029 | recount_tag_link_counts | recompute `workspace_tags.link_count` from `workspace_tag_links` |
+| 030 | finance_recurring_transfers | allows recurring `transfer` rules between two accounts |
+| 031 | calendar_events | `reminders.kind` + inclusive range for all-day events |
+| 032 | finance_budget_name | `finance_budgets.name` + backfill from tag |
+| 033 | qstash_delivery | QStash delivery metadata and indexes for notifications and Metronome outbox |
+| 034 | drop_nutrition_shopping_reminders | drop reminder columns on `nutrition_shopping_items`; purge `scheduled_notifications` domain `nutrition` |
+| 035 | finance_debt_savings_account | optional `account_id` on debts and savings goals |
+| 036 | finance_debt_account_detail | `finance_debts.settled_at`; `statement_day`, `is_primary`, `mask_last4` on accounts |
+| 037 | finance_transaction_debt_payments | syncs payments with debt movements, recovers skipped payments, and guarantees one payment per transaction |
+| 038 | remove_pre_creation_activity_logs | soft-delete of activity logs before the creation day (including Unix epoch logs created by clients without `dateMs`) |
+| 039 | eve_privacy_memory_proactive | `eve_chats.visibility` + author FK; `eve_chat_share_events`; `eve_user_memories`; (historical) proactive settings/deliveries |
+| 040 | eve_proactive_last_read | (historical) `eve_proactive_settings.last_read_at` |
+| 041 | task_subpages | subtasks as task pages (`parent_task_id`) |
+| 042 | recipe_steps_tools | `nutrition_recipe_steps` + `nutrition_recipe_tools` |
+| 043 | drop_eve_proactive | drop `eve_proactive_*`; purge jobs `domain=agent`; delete chats `eve-proactive-%` |
+| 044 | week_plan | `week_plans` + `week_plan_items` (Mon–Sun week plan) |
+| 045 | reminder_all_day_email_each_day | drop `reminders.kind`; `all_day` + `email_each_day`; optional range on reminders |
+| 046 | billing_pending_plan | `workspaces.billing_pending_plan` + `billing_pending_interval` for scheduled downgrades |
+| 047 | recount_workspace_project_counts | `workspaces.project_count` = custom projects (excluding General); default 0 |
+| 048 | week_plan_intent_links | `week_plans.intent` + optional calendar/task links on items |
+| 049 | feedback_kind | `feedback_submissions.kind` (`bug` \| `idea` \| `praise`) |
+| 050 | drop_unused_redundant_indexes | drop leftover/redundant indexes: `idx_goals_workspace`, `idx_eve_chat_events_chat`, `idx_finance_accounts_workspace` |
+| 051 | week_plan_series | `week_plan_series` + `week_plan_items.series_id` (repeat every week) |
+| 052 | week_plan_later | `week_plan_items.date_key` nullable (Later) |
+| 053 | week_plan_activity_link | `source_activity_id` on items and series (optional habit) |
+| 054 | week_plan_series_start | `starts_on_week_start_date_key`; weekly does not fill past weeks |
+| 055 | workspace_member_favorite | `workspace_members.is_favorite` (user's personal favorite) |
+| 056 | drop_activity_project_links | deletes `workspace_project_links` with `entity_type = activity` |
+| 057 | goal_images | `goal_images` (goals cover blob) |
+| 058 | vision_boards | `vision_boards` + items + links to goals |
+| 059 | purge_orphan_project_links | deletes `workspace_project_links` rows whose linked entity is gone |
+| 060 | workspace_plan_free_pro | collapse stored plans to `base` / `pro` |
+| 061 | better_auth_account_issuer | `account.issuer` for Better Auth credential/OAuth lookup |
+| 062 | task_attention_pins | per-user task attention pins |
+| 063 | document_schema_version | `schema_version` on `task_documents` and `note_documents` |
+| 064 | finance_coherence | savings-goal linkage, unique contribution ownership, currency on budgets/savings/planner, currency-scoped daily summaries |
+| 065 | drop_redundant_indexes | drop left-prefix indexes: `idx_nutrition_meal_logs_workspace`, `idx_week_plans_workspace`, `idx_workspace_tags_workspace`, `idx_workspace_tags_scope` |
+| 066 | workspace_plan_business | permit `business` as a current or pending workspace plan without reclassifying existing Pro rows |
+| 067 | workspace_plan_entitlements | project 5/10/25 included member capacity and 100/1,000/5,000 monthly AI credits onto existing workspace billing rows |
+| 068 | entitlement_v2_usage_accounts | entitlement versions and billing-scope Agent usage accounts |
+| 069 | index_eve_chat_session | Eve session ownership claims, event CAS revision, atomic voice persistence, one-time voice approval challenges, and fail-closed API idempotency |
+| 070 | redact_eve_reasoning_events | irreversibly remove legacy `reasoning.*` stream rows after write/read redaction ships |
+| 071 | eve_turn_correlations | content-free accepted-reservation → Eve turn join for pseudonymous quality metrics and feedback |
+| 072 | checkin_sleep_quality | replace sleep duration and pressure with three-point sleep quality and day ratings |
+| 079 | workspace_to_profile | `workspaces` → `profiles`, `workspace_members` → `profile_members`, `workspace_id` → `profile_id`. **Written, not applied.** |
+| 083 | feedback_source_profile_name | `feedback_submissions.source_workspace_name` → `source_profile_name` |
+
+(There is no `000008` in the repo. Intermediate rows are missing from this table on purpose if they were not documented.)
+
+## Commands
+
+```bash
+bun run api:migrate-up
+bun run api:migrate-version
+bun run api:migrate-force   # only with care
+```
+
+## Deploy (API on Vercel)
+
+The API container (`Dockerfile.vercel`) runs `migrate up` in the entrypoint **before** starting the server. With `MIGRATE_DATABASE_URL` (or `DATABASE_URL`) in the Vercel project, every deploy (and every container cold start) applies pending migrations so the prod schema does not lag behind `dev`.
+
+`cmd/migrate up` is a **fast no-op** when the DB is already at the head version (log `status=noop`), so there is no need to skip migrations in the entrypoint to save CPU — the drift risk is not worth it.
+
+`bun run api:build` also runs `migrate up` at the end (useful locally if there is a DSN in `.env.local`).
+
+## Dev reset (destructive)
+
+```bash
+# from apps/api or the monorepo flow
+go run ./cmd/reset-schema
+bun run api:migrate-up
+```
+
+Or manually:
+
+```sql
+DROP SCHEMA public CASCADE;
+CREATE SCHEMA public;
+-- then migrate-up
+```
+
+## Verify
+
+```sql
+SELECT table_name
+FROM information_schema.tables
+WHERE table_schema = 'public'
+  AND table_type = 'BASE TABLE'
+  AND table_name <> 'agata_schema_migrations'
+ORDER BY 1;
+```
+
+## Schema PR checklist
+
+1. Reviewed up/down pair  
+2. Indexes for real listing queries  
+3. CHECKs for domain enums  
+4. FKs with the correct ON DELETE (CASCADE only where it applies)  
+5. Docs in `apps/docs/database/…` updated  
+6. Dev seed if it introduces required tables  
+
+## Expand / contract
+
+In prod with data: prefer nullable columns → backfill → constraints, instead of destructive rewrites.
