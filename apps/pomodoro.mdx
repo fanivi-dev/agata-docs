@@ -1,0 +1,34 @@
+---
+title: "Pomodoro"
+description: "Focus timers, list/detail, and full-screen focus mode."
+---
+
+**Pomodoro** manages focus timers and sessions.
+
+## What it includes
+
+- Timer list as **cards** (today summary + streak) or **dense rows** with a session panel
+- Pin, archive, duplicate
+- Detail with ring, phases, cycles, and history grouped by day
+- Full-screen **focus mode** (Space / N / Esc shortcuts)
+- Sessions and daily stats
+- Quick capture and floating timer outside the app
+
+## Insights
+
+The **Insights** tab (`/pomodoro/insights`) summarizes today/week focus, work sessions, streak, and ranking by timer. The UI offers a **7 / 30 / 90** day range (`?range=`). API: `GET /api/pomodoro/studios/:profileId/insights-summary?todayDateKey=YYYY-MM-DD&rangeDays=30`.
+
+## Routes
+
+| Route | Use |
+| --- | --- |
+| `/pomodoro` | Home (list + session panel in row view; `?view=list` persists rows) |
+| `/pomodoro/insights` | Insights (focus and streaks; `?range=7\|30\|90`) |
+| `/pomodoro/:timerId` | Timer detail · access to focus mode. Unknown id → soft “Timer not found” |
+
+## Tips
+
+- When creating/editing a timer you can associate a **project** (optional).
+- Works well with the tasks **focus** view.
+
+Theme: `pomodoro`.
