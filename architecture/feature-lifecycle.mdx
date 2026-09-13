@@ -1,0 +1,248 @@
+---
+title: "Feature lifecycle"
+description: "How to create, edit, and delete a product surface: docs, Paper, code, Storybook, Eve, QA, and Vercel."
+---
+
+Paper → code → Storybook is **only the visual slice**. Adding, changing, or removing a feature in Agata goes through many more actors: product, schema, API, app, shell catalog, Eve, billing, seed, QA, and two Vercel projects.
+
+This page is the map. The UI slice remains in [Paper → code → Storybook workflow](/design-system/workflow). Operational code for agents lives in `AGENTS.md` and `DESIGN.md`. **Agents skip Paper and Storybook unless the user explicitly asked.**
+
+<Info>
+There is no test suite. The quality gate is type-check + architecture + Biome + **manual QA** with the seed user, and Vercel Preview before `main`.
+</Info>
+
+## Three sizes of change
+
+| Size | Example | What it requires |
+| --- | --- | --- |
+| **Surface** inside an app | Vision board in Goals | App docs, Paper, Go + schema if there is new data, services/features, i18n, Storybook `pages/`, seed if a demo is needed |
+| New **studio app** | A mini-app like Pomodoro | Everything for a surface **plus** `ProfileAppId`, catalog, theme, paths, entitlement, billing if there is a quota, Eve section/tools, General + Eve + API + DB docs |
+| **Non-visual** | Logic bug, column rename, copy | Skip Paper and Storybook unless the look changes. Docs and contract still, if behavior or schema is visible |
+
+A tweak to an existing control does not open a new Paper file; it does leave the story aligned if the look changes.
+
+## Actors
+
+Each actor is a place you must **touch, update, or delete** when the feature comes in or goes out. Not all apply to every PR.
+
+### Intent
+
+| Actor | Where | When |
+| --- | --- | --- |
+| Product | **General** tab: `apps/docs/apps/…` or `workspace/…` | Behavior, onboarding copy, what the user sees |
+| Paper | **Agata** file, product page (or **Workflow** for this map) | Any new or redesigned UI. Default / Empty / Loading / Error frames |
+| Visual contract | `DESIGN.md` §0 and **Design system** tab | New pattern or density, not a one-off screen |
+
+### Data contract
+
+| Actor | Where | When |
+| --- | --- | --- |
+| Migrations | `apps/api/db/migrations/` (`up` + `down`) | Table, column, index, CHECK. Run `bun run api:migrate-up` locally **before** the app |
+| DB docs | **Database** tab + [changelog](/database/changelog) | The schema the product uses |
+| Go domain | `apps/api/internal/<domain>/` (ports → application → adapters) + HTTP in `delivery/http` | Persistence or HTTP contract |
+| OpenAPI | `apps/api/docs/openapi.yaml` **and** copy to `apps/docs/openapi/agata-v1.yaml` | Public endpoints or shapes |
+| API docs | **API** tab (`reference/`, guides, [changelog](/api/changelog)) | Contract that clients and Eve must respect |
+
+### Authenticated app
+
+| Actor | Where | When |
+| --- | --- | --- |
+| Feature UI | `apps/app/features/<product>/` | Screens. `domains/` + local `shared/`; `public/` only if another feature consumes it |
+| Services | `apps/app/services/<domain>/` (`queries/`, `actions/`, `types.ts`) | I/O toward Go. Do not import `features/` or `app/` |
+| Routes | `apps/app/app/(authenticated)/studios/[profileId]/…` | Thin `page.tsx`; orchestration in `*-page-content.tsx` |
+| Paths | `apps/app/shared/navigation/paths.ts` | **Never** hand-roll studio URLs |
+| Shell catalog | `apps/app/shared/constants/studio-area-catalog.ts` | Area, `entitlementAppId`, theme, destinations, ⌘K pages, shell copy |
+| App / section IDs | `apps/app/shared/constants/studio-app-ids.ts`, `studio-section-ids.ts` | New app (not a one-off screen) |
+| Theme | `data-app-theme` + tokens in `packages/ui` + [themes](/design-system/app-themes) | App or area with its own accent |
+| i18n | `apps/app/messages/{en,es}/…` | All product copy. **en and es in sync** |
+| Quick capture / shortcuts | capture registry + [⌘K](/workspace/command-palette) + [shortcuts](/workspace/keyboard-shortcuts) | If the area creates something with `C` or enters the palette |
+| Billing | `ProfileLimiter` + customer entitlements + private safeguards + [plans](/platform/billing-plans) | Members, AI pools, or abuse protection |
+| Audit logs | Go domain + entity path in the logs UI | Sensitive mutations |
+| Seed | `apps/api/internal/seed/` + `bun run api:seed` | Demo data in **Agata Full Demo** |
+
+### Agents
+
+| Actor | Where | When |
+| --- | --- | --- |
+| Eve tools | `apps/app/agent/tools/…` + registry in `tool-kit.ts` | The user must be able to do it in natural language. See [Add a tool](/eve/extend/add-a-tool) |
+| Eve instructions | `apps/app/agent/lib/domains/platform/instructions.ts` | New domain or a gotcha the schema does not express |
+| Evals | `apps/app/evals/` | Routing / gating of new tools. See [Evals](/eve/extend/evals) |
+| Eve docs | **Eve** tab | Capability the agent exposes |
+| Docs index | `bun --filter app eve:index-docs` | Any new or touched MDX page. Feeds Eve |
+
+### Design system and playground
+
+| Actor | Where | When |
+| --- | --- | --- |
+| `@agata/ui` | `packages/ui/components/` | Only if a **second** caller needs the chrome. See [Contribute to the DS](/design-system/contribution) |
+| Component Storybook | `apps/storybook/stories/<category>/` | New wrapper or changed primitive look |
+| Page Storybook | `apps/storybook/stories/pages/<product>/<screen>/` | Product screen. DS mocks; **never** import `apps/app` or `#/*` |
+
+### Config, CI, and deploy
+
+| Actor | Where | When |
+| --- | --- | --- |
+| Env vars | **Configuration** tab (`config/app`, `config/api`). No `.env.example` | New secret or flag. Document **names**, not values |
+| Vercel **agata-app** | Root `apps/app` | Preview per PR; Production from `main` |
+| Vercel **agata-api** | Root `apps/api`, `Dockerfile.vercel` | Same. The container runs `migrate up` on start |
+| Local / PR CI | `bun run type-check`, `bun run lint:architecture`, `bun run lint:stylex`, `bunx biome check --write`, `bun --filter app check:eve-tools` if there are tools | Before calling the change good |
+| Docs7 | deploy from `main`, directory `apps/docs` | Product docs in prod. Public: `agata.in/docs` → `docs.agata.in` |
+
+<Warning>
+Two Vercel projects, not Services. The Next BFF talks to Go via `GO_API_URL`. In `next dev` a remote URL is ignored and `http://localhost:8080` is used unless `GO_API_ALLOW_REMOTE=1`. Detail: [Configuration](/config).
+</Warning>
+
+## Create
+
+Canonical order. Skip the step the size does not need; do not reorder the ones that do apply.
+
+<Steps>
+  <Step title="Decide the size">
+    Surface, new app, or non-visual. Note which actors from the table apply. If it is a new app, entitlement and theme go in from day one — not “we’ll wire that later”.
+  </Step>
+  <Step title="Product docs first">
+    Write or update the page in **General** (`apps/docs/apps/…` or `workspace/…`) **before** inventing structure. What it does, empty states, plan limits, seed. Register it in `docs.json`. Docs flow: [Contributing to the docs](/architecture/contributing-docs).
+  </Step>
+  <Step title="Paper (if there is UI)">
+    Frames in the **Agata** file, product page. C2 density, page family, one accent. Desktop by default; narrow frame if the layout changes. Paper HTML = reference, it is not pasted into the repo. Detail: [visual workflow](/design-system/workflow).
+  </Step>
+  <Step title="Schema and migrate">
+    `up`/`down` pair in `apps/api/db/migrations/`. `bun run api:migrate-up` locally. Checklist: [Migrations](/database/migrations). Expand/contract in prod with data.
+  </Step>
+  <Step title="Go + OpenAPI">
+    Ports → application → adapters → HTTP. Envelope and errors per [conventions](/api/conventions). Update `apps/api/docs/openapi.yaml` and copy it to `apps/docs/openapi/agata-v1.yaml`. API reference page if the domain is new or changed shape.
+  </Step>
+  <Step title="App: services, feature, routes">
+    Services toward Go. UI in `features/<product>/`. Thin route. Paths from `apps/app/shared/navigation/paths.ts`. Copy `en` + `es`. Studio catalog if there is a destination, tab, or ⌘K page. Theme if the area is new.
+  </Step>
+  <Step title="Surrounding platform">
+    Billing if the resource is counted. Audit log if the mutation is sensitive. Demo seed. Quick capture / `C` shortcut if the area creates. Legal only if consent or real personal data actually changes.
+  </Step>
+  <Step title="Eve (if the domain is spoken)">
+    Tool in a file under `agent/tools/`, registry, instructions, routing eval if there are neighbors. `bun --filter app check:eve-tools`. Do not expose an endpoint Go does not have.
+  </Step>
+  <Step title="Storybook">
+    DS component and/or `pages/<product>/<screen>/` composition with Default / Empty / Loading / ErrorState. It must match Paper. The visual change **is not done** until here.
+  </Step>
+  <Step title="Remaining docs + index">
+    API, DB, Design system, Eve, Config tabs as touched. `bun --filter app eve:index-docs`. `bun --filter docs broken-links` if nav changed.
+  </Step>
+  <Step title="Local verification">
+    `bunx biome check --write` on what you touched. `bun run type-check`, `bun run lint:architecture`, and `bun run lint:stylex`. No `bun run build` unless asked. Start the API **only** if port 8080 is free.
+  </Step>
+  <Step title="Manual QA and Preview">
+    Follow [Manual lane](#manual-lane). The PR opens **app** and **api** Previews. Do not merge to `main` with the happy path only local.
+  </Step>
+</Steps>
+
+## Edit
+
+Same map as create, but **only the layers the diff touches**. Useful questions:
+
+1. Does it change what the user sees or can do? → General + Paper (if visual) + Storybook.
+2. Does persistence change? → migration + DB docs + seed if the demo breaks.
+3. Does HTTP change? → Go + OpenAPI + API docs + services + Eve if there is a tool.
+4. Does navigation change? → paths + catalog + shell i18n + ⌘K.
+5. Does capacity change? → customer entitlements, private safeguards, billing copy, and independent seed fixtures.
+6. After a visual ship: update the Paper frame or mark it stale. Do not leave Paper “current” if the code diverged.
+
+Delete what the change leaves dead: components, i18n keys, stories, re-exports. Git is the backup.
+
+## Delete
+
+The repo default is **delete dead code**, not leave stubs. Removing a feature is the create map **in reverse**, with two exceptions:
+
+| Layer | What to do |
+| --- | --- |
+| Migrations | **Do not** rewrite history. `down` for dev; in prod with data, expand/contract or a drop documented in the schema changelog. Rows 001…N stay |
+| Billing / Stripe | Remove the `LimitKey` and the product quota. Do not leave an orphan counter in Upstash |
+| OpenAPI | Delete paths and schemas. Sync the docs YAML |
+| Eve | Tools, registry, instructions, evals. Run `check:eve-tools` |
+| Catalog / paths / IDs | Remove area, destination, pages, `ProfileAppId` if it was an app. Shortcuts and capture |
+| UI | Feature, services, routes, i18n in **en and es**, stories, Paper frames (or mark them retired) |
+| Docs | General / API / DB / Eve / DS pages. Take them out of `docs.json`. Regenerate the index |
+| Seed | Stop creating rows for that domain |
+| Audit / entity paths | Entity paths in logs and any residual `entityType` |
+
+<Warning>
+Removing the UI and leaving the table “just in case” does not count as deleting the feature. Either the domain stays alive (then do not delete it) or it leaves entirely.
+</Warning>
+
+## Manual lane
+
+CI does not cover this. It is part of the flow, not an extra.
+
+### Local QA
+
+1. `bun run api:seed` if the demo is missing. Without `--reset` the command is idempotent: it refreshes **Agata Full Demo** and reuses existing unique rows (assignees, tags, week plans). `--reset` wipes demo data.
+2. Sign in as `seed@agata.local` / `SeedDemo123!` — **not** Google or personal accounts.
+3. Exercise the change **end to end** as a user: click, type, submit, navigate. A screenshot is not enough.
+4. Walk the screens that **share** the state (list, detail, ⌘K, Today, Eve if it applies).
+5. Hunt regressions in the neighborhood, not only the happy path.
+6. States: empty, error, loading, alternate flag/route.
+7. Light and dark. Narrow width if the layout changes.
+8. If you touched Eve: a real turn against the local API (`bun run api:dev` on 8080 if it is free).
+
+### Vercel Preview (every PR)
+
+| Project | Root | What to look at |
+| --- | --- | --- |
+| **agata-app** | `apps/app` | UI on the Preview URL. `ignoreCommand` skips the build if the diff does not touch app/packages |
+| **agata-api** | `apps/api` | Go + migrate when the container starts. `ignoreCommand` skips if there are no changes under `apps/api` |
+
+- The app Preview must talk to **that** api Preview (`GO_API_URL`). If Preview is protected, `GO_API_VERCEL_PROTECTION_BYPASS`.
+- New envs: add them in the dashboard/CLI of **both** projects as needed, in Preview **and** Production. Document the **name** in the Configuration tab.
+- Do not use Vercel Services (it breaks App Router).
+
+### Production (`main`)
+
+- App: canonical domain (e.g. `agata.in`).
+- API: the container applies pending migrations **before** serving traffic. Prod schema does not lag behind `dev` if `MIGRATE_DATABASE_URL` is correct.
+- Docs7 redeploys docs from `main` (`apps/docs`). `agata.in/docs` redirects to `docs.agata.in`.
+- Crons live in the **api** project (`/api/internal/...`). A feature with a new job registers the schedule there and the `CRON_SECRET` secret.
+
+### After merge
+
+- Confirm the happy path once in Production with seed or a test studio — not with personal data.
+- If the docs index was regenerated in the PR, production Eve and MCP see it on that app deploy.
+- Paper: the shipped frame still matches, or it is marked stale the same day.
+
+## Ship checklist
+
+Copy this into the PR when the change is a surface or an app. Strike what does not apply; do not silently strike what does.
+
+```txt
+Size: surface | app | non-visual
+
+[ ] General docs (behavior) + docs.json
+[ ] Paper (Default / Empty / Loading / Error) — or N/A non-visual
+[ ] Migration up/down + migrate-up local + DB docs
+[ ] Go (ports/app/adapters/HTTP) + OpenAPI copied to docs
+[ ] API docs / changelog if the contract is visible
+[ ] services/ + features/ + thin routes
+[ ] paths.ts + catalog + i18n en and es
+[ ] Theme / ProfileAppId / section — if new app
+[ ] Billing limiter + plan copy — if there is a quota
+[ ] Audit log — if sensitive mutation
+[ ] Demo seed
+[ ] Eve: tool + registry + instructions + check:eve-tools + eval
+[ ] Storybook pages/ and/or DS component
+[ ] Index: bun --filter app eve:index-docs
+[ ] Biome write + type-check + lint:architecture + lint:stylex
+[ ] Local seed QA (happy + empty + error + light/dark + neighborhood)
+[ ] Vercel Preview app + api
+[ ] Env documented in Configuration if there is a new name
+[ ] Dead code deleted (also on delete)
+```
+
+## Related
+
+- [Paper → code → Storybook workflow](/design-system/workflow)
+- [Contributing to the docs](/architecture/contributing-docs)
+- [Contribute to the design system](/design-system/contribution)
+- [Add a tool (Eve)](/eve/extend/add-a-tool)
+- [Migrations](/database/migrations)
+- [Configuration / Vercel](/config)
+- [Command palette](/workspace/command-palette)
+- [Billing and plans](/platform/billing-plans)
+- `AGENTS.md` · `DESIGN.md` §6
