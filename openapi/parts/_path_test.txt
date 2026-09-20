@@ -1,1 +1,0 @@
-@/tmp/agata-openapi-parts/part_am
