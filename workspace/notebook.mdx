@@ -14,14 +14,28 @@ description: "Studio notebook: rich-text notes and groups."
 - **Group by** group / type / status to explore the collection
 - Create notes in a rich-text editor (selection bubble, empty-line insertion, and `/` menu)
 - Soft-delete with **undo** in the toast and restore from the **Trash** page
-- Export from the ⋮ menu (Markdown / PDF via print)
+- Export from the ⋯ menu (Markdown / PDF via print)
 - Insert images
 - Note typologies (note, blog, research…) and statuses (draft → published)
+- Share `blog`, `research`, and `report` notes (`members` \| `followers` \| `public`). Public URL `/@handle/notes/:id` only when status is `published`
 - Quick capture
+
+## AI organization
+
+On an editable note, **Organize note with AI** evaluates the saved title and
+plain text together with the current document version and existing Studio
+groups, note tags, and recent notes. One click can add up to three existing
+tags, choose one group only when the note has no group, and create up to three
+related-note links. It never changes the note body, sharing, type, or status.
+
+Related-note links are symmetric: the relation appears on both notes and can be
+removed from either one. The operation refuses a stale document snapshot. Its
+toast offers Undo; Undo removes only links and tags created by that operation
+and restores the prior group only while those values remain unchanged.
 
 ## Insights
 
-The **Insights** tab (`/notebook/insights`) summarizes active/archived notes, words, groups, status/type, and 14-day activity without loading bodies. KPIs and bars link to the inbox with the matching filter (`scope`, `status`, `type`, `groupBy`). API: `GET /api/notebook/studios/:profileId/insights-summary?todayLocalDateKey=YYYY-MM-DD`.
+The **Insights** tab (`/notebook/insights`) summarizes active/archived notes, words, groups, status/type, and 14-day activity without loading bodies. KPIs and bars link to the inbox with the matching filter (`scope`, `status`, `type`, `groupBy`). API: `GET /api/notebook/profiles/:studioId/insights-summary?todayLocalDateKey=YYYY-MM-DD`.
 
 ## Routes
 
@@ -32,7 +46,7 @@ The **Insights** tab (`/notebook/insights`) summarizes active/archived notes, wo
 | `/notebook/trash` | Trash for deleted notes |
 | `/notebook/:noteId` | Editor |
 
-**Trash** opens from the studio sidebar or command palette. From there you can restore deleted notes. `?scope=trash` on `/notebook` **redirects** to `/notebook/trash` (it is not a list scope).
+**Trash** opens from the studio sidebar or command palette. From there you can restore deleted notes.
 
 ## Rich-text editor
 

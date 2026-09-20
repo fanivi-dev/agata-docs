@@ -11,14 +11,20 @@ Activities of type **Block** are excluded from the calendar agenda and its load 
 
 ## Insights
 
-The **Insights** tab (`/calendar/insights`) summarizes agenda load: today, next 7/14 days, reminders (one day vs several days), recurrence, upcoming emails, and distribution by source — without inventing completed states. API: `GET /api/calendar/studios/:profileId/insights-summary?todayLocalDateKey=YYYY-MM-DD` (optional `ianaTimeZone`).
+The **Insights** tab (`/calendar/insights`) summarizes agenda load: today, next 7/14 days, reminders (one day vs several days), recurrence, upcoming emails, and distribution by source — without inventing completed states. API: `GET /api/calendar/profiles/:studioId/insights-summary?todayLocalDateKey=YYYY-MM-DD` (optional `ianaTimeZone`).
+
+Load totals and source counts are informational. Use **Open calendar** to browse
+the agenda; **Email reminders** opens the corresponding email view. Informational
+totals do not imply that a matching date or source filter will be applied.
+
+Items opened from Calendar or Today use Studio app routes, including agenda
+records returned with legacy links.
 
 ## What you can do
 
 - **Month**, **week**, **day**, **Next**, and **Emails** views (`?view=week` / `?view=day` / `?view=agenda` / `?view=emails`; month by default). Month and week grids start on Monday, same as date pickers, Week plan, and Nutrition
-- Reminders and multi-day events can include an optional **venue**. Overlapping timed reminders whose places are 8 km or farther apart show a commute warning
 - Keyboard shortcuts (outside inputs): **M** month, **W** week, **D** day, **T** today, **C**/**N** create reminder
-- Header with the user's short time zone; at ≥1280px the ‹ Today › navigation is not compressed and the view toggles can scroll horizontally
+- Header with the user's short time zone; at ≤1280px the ‹ Today › navigation is not compressed and the view toggles can scroll horizontally
 - **Next** view: always starts on the user's current day, shows today + 6 days, and can load additional 7-day blocks
 - **Emails** view: **Upcoming emails** (pending future sends, with send day and time) and **Sent emails** subtabs (`?view=emails&emails=sent`)
 - Filter the agenda by source type
@@ -30,6 +36,7 @@ The **Insights** tab (`/calendar/insights`) summarizes agenda load: today, next 
 - In the month grid, **+N more** opens a popover with the day's events (and an option to open the day view)
 - Reschedule one-shot single-day reminders by dragging in week/day: keeps the grab point, snaps to 15-minute intervals, keeps duration in the preview, auto-scrolls near the edges, and does not open the detail on drop
 - Open items from other apps from the detail (read-only in calendar)
+- **Classify visible agenda with AI** analyzes at most 12 currently visible occurrences. The event detail also offers **Classify this event with AI** for the open occurrence only. It stores removable occurrence annotations for `work`, `personal`, `learning`, `health`, or `other`, and assesses only overlaps computed from actual start/end times as `attention` or `informational`. Category decisions use a reserved 60-question pool; up to 20 deterministic overlap pairs use a separate 40-question pool. The action never changes source records, dates, notifications, recurrence, or email.
 - In the **Next** view, the “back” / reset control returns to the user's current day
 - Navigate from ⌘K or the sidebar
 
@@ -59,11 +66,13 @@ The Tasks calendar panel still shows density by due date; those same deliveries 
 ## Routes
 
 ```txt
-/studios/:id/calendar
-/studios/:id/calendar/insights
+/orgs/:orgHandle/:handle/calendar
+/orgs/:orgHandle/:handle/calendar/insights
 ```
 
 Visual theme: `calendar`. Each source uses the `data-app-theme` of its domain (tasks, projects, activities, goals, finance, library, nutrition, weekplan).
+
+AI annotations are keyed by source type, source ID, local occurrence identity, and a source fingerprint. A changed occurrence no longer displays an annotation created for its previous timing or content. The event detail exposes ordinary removal, and the action toast offers conditional Undo for annotations that have not already been changed or removed. Existing deterministic calendar behavior remains available when AI is unavailable.
 
 ## Related
 
