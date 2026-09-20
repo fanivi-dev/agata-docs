@@ -44,7 +44,7 @@ Indexes: `(profile_id, user_id)`; active listing `idx_health_metric_defs_profile
 
 ### `health_exercise_routines`
 
-Template: `sport_label`, `summary`, `instructions`, `schedule_hint`, `target_duration_minutes`, `default_intensity`, archive/soft delete.
+Template: `sport_label`, `summary`, `instructions`, `schedule_hint`, `target_duration_minutes`, `default_intensity`, `visibility` (`members` \| `subscribers` \| `followers` \| `public`), archive/soft delete. Public catalog: `/@handle/routines/:id`. Sessions and attachments stay members-only.
 
 ### `health_exercise_routine_blocks`
 

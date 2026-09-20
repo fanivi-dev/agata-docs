@@ -25,9 +25,9 @@ Open it with **⌘K** / **Ctrl+K**, or with the sidebar search control (above th
 
 Source of truth in code:
 
-- `apps/app/shared/constants/studio-area-catalog.ts` — area, access owner, destinations, shell copy, and pages
-- `apps/app/shared/components/use-studio-command-palette-items.tsx` — builds palette rows (RBAC + catalog + captures)
-- `apps/app/shared/quick-capture/studio-quick-capture-registry.ts` — area captures for **C** and palette actions
+- `apps/app/shared/constants/profile-area-catalog.ts` — area, access owner, destinations, shell copy, and pages
+- `apps/app/shared/components/use-profile-command-palette-items.tsx` — builds palette rows (RBAC + catalog + captures)
+- `apps/app/shared/quick-capture/profile-quick-capture-registry.ts` — area captures for **C** and palette actions
 - Path helpers: `apps/app/shared/navigation/paths.ts`
 - Active shell / landing: `apps/app/shared/lib/navigation/route-helpers.ts`
 
@@ -36,5 +36,5 @@ Source of truth in code:
 1. Reuse helpers from `apps/app/shared/navigation/paths.ts`
 2. Register the area, destination, and pages once in `PROFILE_AREA_CATALOG`
 3. Add i18n labels in shell / daily nav messages (en **and** es)
-4. Do not hardcode `/es/studios/...` by hand
+4. Use the path helpers for `/orgs/:orgHandle/:handle/...`; locale is a cookie, not a URL segment
 5. Declare `entitlementAppId` on the area; keep special runtime gates such as the logs role out of the catalog

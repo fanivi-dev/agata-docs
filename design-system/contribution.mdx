@@ -1,55 +1,51 @@
 ---
 title: "Contributing to the design system"
-description: "How to propose and document changes in packages/ui."
+description: "Choose ownership, preserve Astryx contracts, and document reusable UI changes."
 ---
 
-Product UI follows [Paper → code → Storybook](/design-system/workflow). This page covers only **promoting or changing** something in `packages/ui`.
+This page covers changes to `packages/ui`. Follow the
+[UI workflow](/design-system/workflow) and the execution policy in `AGENTS.md`.
 
-## Flow
+## Choose the owner
 
-<Steps>
-  <Step title="Design in Paper">
-    Frame (and variants) in Paper Desktop. Flex, official Astryx semantic tokens, C2. Paper's HTML is never pasted into the package.
-  </Step>
-  <Step title="Does it belong to the system?">
-    If a single feature uses it, keep it in the feature. If it is reused, carry on.
-  </Step>
-  <Step title="Implement in packages/ui">
-    Map the wrapper onto Astryx when a primitive exists. Preserve its props and behavior unless an exact Agata boundary requires an adapter. Use StyleX (`stylex.create` + `stylex.props`) with official Astryx tokens only for leftovers. Keep native compatibility paths narrow and documented.
-  </Step>
-  <Step title="Storybook">
-    Story in `apps/storybook/stories/…` with `autodocs`, StyleX variant `argTypes`, `Default` plus meaningfully different variants. Align the story with the Paper frame.
-  </Step>
-  <Step title="Document here">
-    Update the catalog / patterns / tokens under `apps/docs/design-system`.
-  </Step>
-  <Step title="PR">
-    Include light/dark screenshots and, where relevant, two app themes.
-  </Step>
-</Steps>
+Keep domain logic, services, and product messages in the app. Shared product
+compositions such as `FilterBar`, `CalmEmpty`, and `GuidedSection` live in
+`apps/app/shared/components/`. Generic visual behavior belongs in `packages/ui`
+when at least two features need it and no existing primitive covers the case.
 
-## UI PR checklist
+## Preserve the contract
 
-- [ ] Light and dark
-- [ ] At least one `data-app-theme` if it uses primary
-- [ ] Keyboard and focus visible
-- [ ] No forbidden imports (Radix Select, etc.)
-- [ ] No Agata token aliases or feature-owned design variables
-- [ ] No business logic in the package
-- [ ] Docs in this tab updated
-- [ ] Storybook updated (and aligned with Paper if the look changed)
-- [ ] English only — titles, comments, fixture copy
+1. Inspect the local export and installed Astryx API before adding a component.
+2. Prefer a typed re-export. Add an adapter only for a named missing contract,
+   such as Hugeicons data, native form attributes, or portal theme propagation.
+3. Preserve upstream props, callback values, keyboard behavior, and accessibility.
+4. Prefer component props and layout primitives. For necessary custom styles,
+   use official tokens and raw StyleX values through `xstyle`.
+5. Record wrapper ownership and exceptions in the applicable
+   `packages/ui/scripts/*-registry.json` or `*-exceptions.json` file.
+6. Update the affected component or pattern guidance and remove dead code.
 
-## Component API
+Keep named exports stable. Do not add generic `className` / `render` bridges,
+shadcn compound slots, feature messages, or an Agata token alias layer.
 
-- Stable named exports
-- Astryx contracts (`label`, `xstyle`, controlled props) on the stable Agata export
-- `xstyle` for StyleX; do not add `className` / `render` bridges or shadcn compound slots
+## Verification and review
+
+Run the static checks required for the changed files. StyleX/token changes need
+`bun run lint:stylex`; changed wrappers also need their applicable contract and
+registry checks. Inspect source for labels, focus behavior, theme propagation,
+semantic structure, and loading/empty/error states.
+
+Paper, Storybook, browsers, screenshots, tests, and builds are optional work
+that requires an explicit user request. When Storybook is requested, add or
+update the relevant component or pattern stories with English fixtures and
+meaningful variants. Report any runtime checks that were not performed.
+
+Pushes, PR creation, and deployment also require a user request. A requested
+PR should explain the behavior change, ownership, and verification performed.
 
 ## Related
 
-- [Feature lifecycle](/architecture/feature-lifecycle)
-- [Paper → code → Storybook workflow](/design-system/workflow)
+- [Components](/design-system/components)
+- [Patterns](/design-system/patterns)
 - [Principles](/design-system/principles)
-- Code: `packages/ui/components/`
-- Agents / UI ownership: `AGENTS.md` (UI stack section)
+- [Feature lifecycle](/architecture/feature-lifecycle)

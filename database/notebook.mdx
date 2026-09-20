@@ -34,6 +34,7 @@ Note metadata (not the full ProseMirror JSON).
 | `title` | TEXT | Default `''` |
 | `type` | TEXT | `note` \| `blog` \| `x_post` \| `x_thread` \| `report` \| `research` |
 | `status` | TEXT | `draft` \| `review` \| `ready` \| `published` |
+| `visibility` | TEXT | `members` \| `subscribers` \| `followers` \| `public`. Default `members`. Public catalog only for `blog` / `research` / `report` + `published`. |
 | `group_id` | UUID → note_groups | Nullable |
 | `date_key` | TEXT | Optional local day |
 | `migration_source_id` | TEXT | Legacy migrations |

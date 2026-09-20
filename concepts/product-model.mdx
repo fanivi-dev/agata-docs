@@ -18,6 +18,7 @@ flowchart TD
   Team --> P
   P --> T[Members]
   P --> F[Followers]
+  P --> S[Subscribers]
   P --> D[Daily]
   P --> W[Work]
   P --> A[Domain apps]
@@ -28,9 +29,10 @@ flowchart TD
 | **User** | Login, preferences, locale. May belong to Organizations. |
 | **Organization** | Owns people, Teams, and zero or more Studios. Not public, not followable. |
 | **Team** | Org-scoped membership shortcut. Never an owner. No followers. |
-| **Studio** | Public actor (`handle`). Person-owned or Organization-owned. Table `profiles`. API `profileId`. |
+| **Studio** | Public actor (`handle`). Person-owned or Organization-owned. Table `profiles`. API `studioId`. |
 | **Members** | Invited collaborators, seats, section access. Billing stays on the studio row. |
-| **Follow** | Audience for shareable rows (`members` \| `followers` \| `public`) |
+| **Follow** | Free audience for shareable rows |
+| **Subscriber** | Paid audience. Sees `subscribers` + `followers` + `public`. Not a seat. |
 | **App** | Which domain screens and data you use |
 
 ## Studio apps
@@ -61,6 +63,6 @@ Plans impose caps (members, tasks, projects, tags, reminders, finance, goals…)
 ## What the model is not
 
 - There is no useful “account without a studio” for the product: you always operate in a studio.  
-- Apps are not separate SaaS products: they share auth and `profileId`.
-- Follow is not membership. Public pages are not the studio shell.
+- Apps are not separate SaaS products: they share auth and `studioId`.
+- Follow is not membership. A subscriber is not a team member. Public pages are not the studio shell.
 - An Organization is not a Studio. A Team is not a Studio and is not on Explore.

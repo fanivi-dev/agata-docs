@@ -14,7 +14,7 @@ Use case: **capture work** in the profile inbox. This is the “hello world” o
 ## Prerequisites
 
 - Better Auth session Bearer ([Authentication](/api/authentication))
-- A `profileId` where the user is a member
+- A `studioId` where the user is a member
 - Base: `http://localhost:8080/api`
 
 ## 1. Create the task
@@ -75,10 +75,10 @@ In the app, this goes through `updateTaskDocumentAction` without contaminating t
 
 ```ts
 // conceptual
-await createTaskAction(profileId, { title: 'Prepare API demo' });
+await createTaskAction(studioId, { title: 'Prepare API demo' });
 // editor:
-await getTaskDocumentAction(profileId, taskId);
-await updateTaskDocumentAction(profileId, taskId, { contentJson, expectedVersion });
+await getTaskDocumentAction(studioId, taskId);
+await updateTaskDocumentAction(studioId, taskId, { contentJson, expectedVersion });
 ```
 
 ## Common errors

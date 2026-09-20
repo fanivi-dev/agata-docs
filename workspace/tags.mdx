@@ -41,7 +41,13 @@ Bulk actions (select mode): favorite, **recolor**, delete.
 - Create and edit tags on `/tags` (name, color, domain, favorite)
 - View detail and linked entities (deep Open when there is an entity route)
 - Assign tags from pickers in each app (filtered by domain)
+- Add task-detail AI suggestions drawn only from existing `general` and `tasks` tags, then remove any you do not want
 - Filter unused and favorites, and sort by usage or name
+
+## CSV export
+
+**Export CSV** uses the current search, scope, filters, and sort order across all
+pages, up to 5,000 rows. The selected page and view mode do not limit the export.
 
 ## Routes
 
@@ -55,3 +61,4 @@ Bulk actions (select mode): favorite, **recolor**, delete.
 - There is a tag limit per plan.
 - Use `general` for cross-cutting labels; a concrete domain for an app taxonomy (e.g. finance categories).
 - Favorites appear first in the studio sidebar.
+- The explicit task-detail AI action can add up to three existing tags. It never creates, renames, removes, or replaces tags; use the normal picker to remove an unwanted result or tag manually.
