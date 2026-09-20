@@ -5,6 +5,12 @@ description: "Hub for goals, pomodoro, activities, reminders, library, health, a
 
 Primary source: `000005_domains.up.sql` (large file).
 
+Migration `000096_ai_notebook_today.up.sql` adds revisioned symmetric
+`note_relations` and the personal, date-scoped `daily_focus_sets` /
+`daily_focus_items` storage used by Notebook and Today AI actions. An empty
+focus set is meaningful and suppresses the derived due-today fallback until the
+user resets it.
+
 Each subdomain has a page with **columns**:
 
 <CardGroup cols={2}>
@@ -28,9 +34,6 @@ Each subdomain has a page with **columns**:
   </Card>
   <Card title="Nutrition" icon="utensils" href="/database/nutrition">
     recipes, inventory, meals, shopping, water, plans.
-  </Card>
-  <Card title="Places" icon="map-pin" href="/database/places">
-    Shared lat/lng places. Product rows reference `place_id`.
   </Card>
   <Card title="Week plan" icon="calendar-days" href="/database/week-plan">
     week_plans + week_plan_items + week_plan_series (`000044` / `000051`, not meal plans).

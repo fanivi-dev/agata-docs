@@ -21,7 +21,7 @@ The list/detail API exposes `createdBy` (UUID → `users`) for items and collect
 | `search_blob` | |
 | `media_creator_name` / `duration_ms` | |
 | `archived_at` | |
-| `visibility` | `members` \| `followers` \| `public`. Default `members`. Public catalog: `/@handle/library/:id`. |
+| `visibility` | `members` \| `subscribers` \| `followers` \| `public`. Default `members`. Public catalog: `/@handle/library/:id`. |
 | blob metadata | url, pathname, store, etag, content_type, size |
 | soft delete | `DELETE .../items/:id`; hard-delete from trash via `DELETE .../items/:id/permanent` |
 
@@ -36,7 +36,7 @@ Episodes/parts: `season_number`, `episode_number`, `part_number`, `position`, st
 | `name` / `description` | |
 | `scope` | Legacy column; collections are profile-shared. Prefer `profile` when writing. |
 | `created_by` | |
-| `visibility` | `members` \| `followers` \| `public`. Default `members`. Public catalog: `/@handle/collections/:id`. `itemCount` on the public DTO is visible items only. |
+| `visibility` | `members` \| `subscribers` \| `followers` \| `public`. Default `members`. Public catalog: `/@handle/collections/:id`. `itemCount` on the public DTO is visible items only. |
 | soft delete | |
 
 Collection list/get project `itemCount` (links to non-deleted `library_items`). `createdBy` comes on list and detail.

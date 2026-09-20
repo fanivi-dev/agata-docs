@@ -14,6 +14,7 @@ description: "activities, activity_logs, and activity_images."
 | `description` / `color` / `image` | |
 | `current_streak` / `longest_streak` / `completion_rate` | Stats synced on log write; reads re-derive them from `activity_logs` |
 | `kind` / `auto_complete_mode` | |
+| `visibility` | `members` \| `subscribers` \| `followers` \| `public`. Default `members`. Public catalog: `/@handle/activities/:id` for habits only (no logs, streaks, or assignees). |
 | recurrence fields | type, interval, unit, weekdays JSONB, paused |
 | `weekday_time_slots` | JSONB |
 | email/agenda reminder fields | offsets, job ids, occurrence |

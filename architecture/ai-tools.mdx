@@ -19,7 +19,16 @@ Copy lives in `messages/{en,es}/AiTools.json`. Catalog IDs and paths live in `fe
 
 ## How agents pick a skill
 
-`AGENTS.md` is the constitution. Agents read Fanivi plus **one** playbook when the work is multi-file, a write playbook applies, or independent slices can run in parallel. Open at most one domain skill (StyleX or one vendor tree). Paper, Storybook, and the browser stay off unless the user named them.
+`AGENTS.md` supplies the always-on Fanivi policy. Simple questions and edits
+use that policy directly. Read the canonical Fanivi skill when uncertainty,
+a material decision, a matching procedure, or useful delegation requires
+it. Start with one relevant playbook; add guidance only for an uncovered
+requirement. File count alone does not set the workflow.
+
+Read domain skills when the work needs them. For UI, start with `DESIGN.md`
+§0 and §5; for StyleX edits, read the StyleX skill. Paper, Storybook,
+browser sessions, and other runtime verification require an explicit user
+request. Editor adapters load the canonical rules without copying them.
 
 ## Route
 
