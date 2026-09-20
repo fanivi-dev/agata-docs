@@ -23,15 +23,15 @@ Go  /api/{domain}/profiles/{id}/...
 ### 1. Auth and section gate
 
 ```ts
-const auth = await requireGoWriteAccess('tasks', profileId, 'work');
-// or requireGoDomainServerAuth(profileId, 'daily') for notebook
+const auth = await requireGoWriteAccess('tasks', studioId, 'work');
+// or requireGoDomainServerAuth(studioId, 'daily') for notebook
 ```
 
 ### 2. Go transport
 
 ```ts
 const response = await baseFetchMeta<Task>(
-  `/api/tasks/profiles/${profileId}`,
+  `/api/tasks/profiles/${studioId}`,
   auth.token,
   { method: 'POST', body: JSON.stringify(input) }
 );
@@ -50,11 +50,11 @@ For reads **shareable across members of the same profile**:
 
 ```txt
 RSC / public query
-   │  requireGoDomainServerAccess(profileId, section?)  (dynamic: cookies + membership)
+   │  requireGoDomainServerAccess(studioId, section?)  (dynamic: cookies + membership)
    ▼
 private function with 'use cache: remote'
    │  cacheLife('hours')
-   │  cacheTag(tasksListTag(profileId))  // domain surface tag
+   │  cacheTag(tasksListTag(studioId))  // domain surface tag
    │  baseFetchInternalMeta(path)          // Bearer CRON_SECRET — no user token
    ▼
 Go API (GET profile-scoped; trusts membership to the BFF)
@@ -66,21 +66,21 @@ import { tasksListTag } from '#/services/shared/server/cache-tags';
 import { requireGoDomainServerAccess } from '#/shared/lib/server/require-go-domain-auth';
 
 export async function listTasksForProfile(
-  profileId: string,
+  studioId: string,
   params: ListTasksParams = {}
 ) {
-  await requireGoDomainServerAccess(profileId, 'work');
+  await requireGoDomainServerAccess(studioId, 'work');
   // assignedToMe / createdByMe → path with user session (not shareable)
-  return listTasksQueryCached(profileId, params);
+  return listTasksQueryCached(studioId, params);
 }
 
 async function listTasksQueryCached(
-  profileId: string,
+  studioId: string,
   params: ListTasksParams
 ) {
   'use cache: remote';
   cacheLife('hours');
-  cacheTag(tasksListTag(profileId));
+  cacheTag(tasksListTag(studioId));
   return baseFetchInternalMeta(/* ... */);
 }
 ```
@@ -102,8 +102,8 @@ Rules:
 Three distinct layers:
 
 | Layer | What for | Where |
-| --- | --- | --- |
-| **Upstash Redis (Go)** | Hot payload of `GET /users/me/session` (`me:session:*`), identity and access | Go API |
+| --- | --- |
+| **Upstash Redis (Go)** | Hot payload of `GET /users/me/session` (`me:session:v2:*`), identity and access | Go API |
 | **`react.cache` (request)** | Per-request dedupe of identity, session, access, usage, canView | Next BFF / RSC |
 | **`'use cache: remote'` (Data Cache)** | Cacheable product reads with `cacheTag` | Domain queries |
 
@@ -142,30 +142,30 @@ import {
 } from '#/services/shared/server/cache-tags';
 
 // Tasks: list + inbox calendar + search + profile Calendar agenda
-invalidateCache.taskWrite(profileId, taskId); // update due/status/reminder…
-invalidateCache.tasksSurfaces(profileId); // create / duplicate
-invalidateCache.tasksWrite(profileId, taskIds, { trash: true }); // bulk soft-delete
-invalidateCache.tasksAll(profileId); // list+trash+calendar+search+agenda
+invalidateCache.taskWrite(studioId, taskId); // update due/status/reminder…
+invalidateCache.tasksSurfaces(studioId); // create / duplicate
+invalidateCache.tasksWrite(studioId, taskIds, { trash: true }); // bulk soft-delete
+invalidateCache.tasksAll(studioId); // list+trash+calendar+search+agenda
 
 // Helpers by domain (options → granular tags)
 // Several domains also invalidate calendarAgendaTag (tasks, projects,
 // activities, goals, library items, nutrition shopping, finance debts/savings).
-invalidateCache.projects(profileId, { projectId });
-invalidateCache.notebook(profileId, { noteId, groups: true });
-invalidateCache.finance(profileId, 'transaction'); // accounts+tx+search+summary+budgets+agenda
-invalidateCache.finance(profileId, 'recurring'); // rules+tx+…+agenda
-invalidateCache.finance(profileId, 'debts'); // +agenda
-invalidateCache.nutrition(profileId, 'recipes', { recipeId });
-invalidateCache.nutrition(profileId, 'shopping'); // +agenda
-invalidateCache.library(profileId, { itemId, trash: true }); // soft-delete/restore +agenda
-invalidateCache.health(profileId, { checkins: true });
-invalidateCache.tagList(profileId, { tagId });
-invalidateCache.calendar(profileId, { reminderId }); // reminders list+agenda
+invalidateCache.projects(studioId, { projectId });
+invalidateCache.notebook(studioId, { noteId, groups: true });
+invalidateCache.finance(studioId, 'transaction'); // accounts+tx+search+summary+budgets+agenda
+invalidateCache.finance(studioId, 'recurring'); // rules+tx+…+agenda
+invalidateCache.finance(studioId, 'debts'); // +agenda
+invalidateCache.nutrition(studioId, 'recipes', { recipeId });
+invalidateCache.nutrition(studioId, 'shopping'); // +agenda
+invalidateCache.library(studioId, { itemId, trash: true }); // soft-delete/restore +agenda
+invalidateCache.health(studioId, { checkins: true });
+invalidateCache.tagList(studioId, { tagId });
+invalidateCache.calendar(studioId, { reminderId }); // reminders list+agenda
 
 // Multi-domain in a single refresh
 invalidateCache.tags([
-  projectsListTag(profileId),
-  tagsListTag(profileId),
+  projectsListTag(studioId),
+  tagsListTag(studioId),
 ]);
 ```
 
@@ -173,7 +173,7 @@ invalidateCache.tags([
 
 - [ ] Action marked `'use server'`
 - [ ] Do not import secrets in client components
-- [ ] `profileId` validated on the server, not only from a blind client
+- [ ] `studioId` validated on the server, not only from a blind client
 - [ ] Correct app section (`work`, `daily`, finance…)
 
 ## Where to look
@@ -192,4 +192,4 @@ invalidateCache.tags([
 
 - [Create a task](/api/guides/create-a-task)
 - [Rich text](/api/guides/edit-rich-text)
-- [Frontend → Data](/frontend/data-and-server)
+- [Local development](/getting-started/local-development)

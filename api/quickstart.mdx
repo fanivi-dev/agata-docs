@@ -17,6 +17,9 @@ bun run api:migrate-up
 bun run api:dev
 ```
 
+Full clone → install → env → migrate → app flow:
+[Local development](/getting-started/local-development).
+
 By default the API listens on port **8080** (adjust for your env).
 
 ## Step 1 — Health (public)
@@ -45,7 +48,7 @@ There is also `GET /api/health/ready` for readiness (depends on the DB).
 Almost every product route goes through:
 
 1. **User identity** — Better Auth Bearer session only (`Authorization: Bearer <session token>`).
-2. **Profile** — `:profileId` path + membership (on domain routes).
+2. **Profile** — `:studioId` path + membership (on domain routes).
 
 Details: [Authentication](/api/authentication).
 
@@ -62,7 +65,7 @@ curl -sS "$BASE/profiles" \
 
 ## Step 3 — A domain mutation
 
-With a valid `profileId`, create a task (exact fields per OpenAPI / the TS client):
+With a valid `studioId`, create a task (exact fields per OpenAPI / the TS client):
 
 ```bash
 export WS=yyyyyyyy-yyyy-yyyy-yyyy-yyyyyyyyyyyy

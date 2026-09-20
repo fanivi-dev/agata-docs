@@ -26,7 +26,7 @@ Go type: `dto.Response[T]`.
 ```
 
 | Field | Type | Description |
-| --- | --- | --- |
+| --- | --- |
 | `data` | T | Endpoint payload |
 | `request_id` | string | Correlation; also in the `X-Request-ID` header |
 | `meta` | object? | Cursor pagination when applicable |
@@ -60,17 +60,23 @@ Always send IDs as UUID strings in JSON/paths.
 
 ## Profile scope
 
+HTTP paths use **`/profiles/{studioId}`**. Product copy says Studio; storage
+and shared modules also use `profile`. Next.js app services may call
+`/api/{domain}/studios/...` and rewrite to `/profiles/` before Go — always
+prefer the OpenAPI `/profiles/` form when curling `api.agata.in` or writing
+external clients.
+
 Dominant pattern:
 
 ```txt
-/api/{domain}/profiles/{profileId}/...
+/api/{domain}/profiles/{studioId}/...
 ```
 
 Examples:
 
-- `/api/tasks/profiles/{profileId}`
-- `/api/finance/profiles/{profileId}/transactions`
-- `/api/notebook/profiles/{profileId}/notes/{noteId}/document`
+- `/api/tasks/profiles/{studioId}`
+- `/api/finance/profiles/{studioId}/transactions`
+- `/api/notebook/profiles/{studioId}/notes/{noteId}/document`
 
 Exceptions: `/users/me/*`, `/profiles` (user listing), public `/p/:handle`, health, internal.
 
@@ -98,7 +104,7 @@ Exceptions: `/users/me/*`, `/profiles` (user listing), public `/p/:handle`, heal
 ## Dates
 
 | Type | Format | Use |
-| --- | --- | --- |
+| --- | --- |
 | Instants | RFC3339 / TIMESTAMPTZ ISO | `createdAt`, `updatedAt` |
 | Local day | `YYYY-MM-DD` | check-ins, meal logs, finance day keys (`dateKey`, `dueDateKey`) |
 
@@ -130,7 +136,7 @@ Accept: application/json
 ## Naming
 
 - Paths in **English**, kebab/restful.
-- Domain payloads in **camelCase** (`profileId`, `amountCents`, `createdAt`).
+- Domain payloads in **camelCase** (`studioId`, `amountCents`, `createdAt`).
 - The cross-cutting envelope keeps **snake_case** (`request_id`, `next_cursor`,
   `limit_key`). Do not mix both styles at the same payload level.
 
