@@ -18,7 +18,7 @@ feature-local typography variables or utility scales.
 
 ## The `Text` component
 
-`@agata/ui/components/text` — Astryx API:
+Use the props exposed by `@agata/ui/components/text`:
 
 | Prop | Typical options |
 | --- | --- |
@@ -36,9 +36,11 @@ Agata preserves native paragraph flow: `Text as="p"` defaults to
 ```tsx
 import { Heading, Text } from '@agata/ui/components/text';
 
-<Heading level={1}>Title</Heading>
-<Text as="p" type="supporting">Secondary description</Text>
-<Text color="warning" maxLines={1}>Needs attention</Text>
+<>
+  <Heading level={1}>Title</Heading>
+  <Text as="p" type="supporting">Secondary description</Text>
+  <Text color="warning" maxLines={1}>Needs attention</Text>
+</>
 ```
 
 ## Headings
@@ -63,4 +65,6 @@ Use `hasTabularNumbers` on `Text` for finance tables and KPIs.
 
 ## i18n
 
-The DS does not translate: **copy** lives in feature messages (`en` is the source, `es` the translation). The DS only styles.
+Product copy lives in app messages (`en` is the source, `es` the translation).
+Generic components receive labels as props; localized guidance compositions
+belong in the app.

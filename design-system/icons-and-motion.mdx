@@ -1,81 +1,64 @@
 ---
 title: "Icons and motion"
-description: "The Icon component + Hugeicons, sizes, and animation durations."
+description: "Hugeicons through the Astryx adapter and motion with official tokens."
 ---
 
 ## Icons
 
 ```tsx
 import { Icon } from '@agata/ui/components/icon';
-import { CheckListIcon, Wallet01Icon } from '@hugeicons/core-free-icons';
+import { CheckListIcon } from '@hugeicons/core-free-icons';
 
 <Icon icon={CheckListIcon} size="sm" />
 ```
 
-| Rule | Detail |
+The adapter converts Hugeicons data into Astryx's SVG component contract.
+Astryx owns size, semantic color, and accessibility. Registries use the
+`IconComponent` type exported by the adapter.
+
+Use supported `size` and `color` props, such as `size="sm"` and
+`color="secondary"`. Use `xstyle` only for layout the component cannot express.
+For runtime colors on an owned native container, use `color="inherit"`.
+Icon-only actions use `IconButton` with a meaningful accessible `label`.
+Do not introduce another web icon library.
+
+## Motion tokens
+
+Use the official `durationVars` and `easeVars` from
+`@astryxdesign/core/theme/tokens.stylex`:
+
+| Family | Tokens |
 | --- | --- |
-| Renderer | `@agata/ui/components/icon` → `<Icon icon={…} />` (Astryx adapter over `@hugeicons/react`) |
-| Library | `@hugeicons/core-free-icons` |
-| Type in registries | `IconComponent` |
-| Typical size in dense UI | 1rem (`size="sm"`) |
-| Sizes | Use Astryx `xsm`, `sm`, `md`, `lg`, or `xl`; use `xstyle` only for composition-specific layout |
-| Colors | Use Astryx semantic colors such as `secondary`, `accent`, or `inherit` |
-| Inside buttons | Align with the Button size (`data-icon`) |
-| Runtime color | Put the runtime color on the owning native container and use `color="inherit"` |
-| Accessibility | When the icon is the only content, put `aria-label` on the control |
+| Fast | `--duration-fast-min`, `--duration-fast`, `--duration-fast-max` |
+| Medium | `--duration-medium-min`, `--duration-medium`, `--duration-medium-max` |
+| Slow | `--duration-slow-min`, `--duration-slow`, `--duration-slow-max` |
+| Easing | `--ease-standard` |
 
-Do not use `lucide-react` or `@phosphor-icons/react` on web. Mobile may keep its own native icon stack.
+Astryx owns their values. Do not restore local `--dur-*` or easing scales.
+Respect reduced motion, prefer opacity/transform, and use animation to explain
+state or spatial continuity. Integration keyframes live in
+`packages/ui/styles/keyframe-animations.css`; StyleX-owned animation stays with
+its component.
 
-## Motion
+## Route transitions
 
-CSS tokens:
+The installed React/Next.js stack uses `ViewTransition` and `transitionTypes`.
+The shared boundary is
+`apps/app/shared/components/profile-route-transition.tsx`; participating product
+segments mount it in `template.tsx` inside their persistent layout.
 
-| Token | Use |
-| --- | --- |
-| `--dur-instant` (80ms) | Micro feedback |
-| `--dur-fast` (140ms) | Subtle hover |
-| `--dur-base` (200ms) | Default UI |
-| `--dur-slow` (320ms) | Panels |
-| `--dur-deliberate` (480ms) | Larger transitions |
-| `--ease-out` / `spring` / `standard` | Curves |
-
-### Good practice
-
-- Respect `prefers-reduced-motion` whenever you add custom animation.
-- Prefer opacity/transform over layout thrash.
-- Do not animate skeletons in an aggressive loop.
-
-Shared keyframes live in `packages/ui/styles/keyframe-animations.css`.
-
-### Route transitions
-
-View Transitions are stable in React 19.3. The authenticated app still uses
-them through Next.js 16.3 `ViewTransition` and `transitionTypes`. It needs no
-flag in `next.config.ts` and no manual calls to
-`document.startViewTransition()`.
-
-Routes opt into motion based on navigation intent:
-
-| Type | Use | Movement |
+| Navigation type | Use | Movement |
 | --- | --- | --- |
 | `nav-forward` | List or summary → detail | Content advances horizontally |
 | `nav-back` | Detail → parent, breadcrumb, or return after delete | Reverse direction |
-| `nav-peer` | Apps, tabs, or same-level destinations | Crossfade, no displacement |
+| `nav-peer` | Apps, tabs, or same-level destinations | Crossfade |
 
-The shared boundary lives in
-`apps/app/shared/components/studio-route-transition.tsx`; each participating
-product segment mounts it from `template.tsx`, inside its persistent layout.
-Links and `router.push`/`router.replace` calls declare the type via
-`transitionTypes`. Untyped navigation, browser history, refreshes, and
-query-only changes stay instant.
+Use the constants in `shared/lib/navigation/view-transition-types.ts` rather
+than inventing strings. Links and router navigation declare `transitionTypes`.
+Untyped navigation, browser history, refreshes, and Suspense reveals remain
+instant.
 
-Operational rules:
-
-- Keep the shell, sidebar, and chrome outside the animated boundary.
-- Do not add the boundary to Agent's persistent layout: the chat host must not
-  unmount when the conversation changes.
-- Keep durations under 300ms and use only `opacity` and `transform` for routes.
-- Zero out View Transition pseudo-element duration and delay under
-  `prefers-reduced-motion: reduce`.
-- With prefetch disabled, do not rely on shared morphs between list and detail:
-  the pair only exists when the destination resolves in the same commit.
+Keep the shell outside the animated boundary. Do not add a remounting boundary
+to Agent's persistent chat layout. Route motion uses official fast/medium duration tokens and only
+opacity/transform. Its CSS disables transition timing for reduced motion. Do not assume a shared-element morph when the destination cannot resolve
+in the same commit.

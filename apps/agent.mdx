@@ -6,18 +6,18 @@ description: "Studio AI chat with the Eve runtime. Full documentation lives in t
 **Agent** is the product entry to the studio AI agent, always scoped to a studio. The agent is called **Eve** (chrome/nav: Agent; persona in chat and memory: Eve).
 
 <Card title="Eve documentation" icon="robot" href="/eve">
-  Runtime, auth and sections, credits, the 173 tools by domain (narrow + dispatcher), and how to add one.
+  Runtime, auth and sections, credits, the 176 tools by domain (narrow + dispatcher), and how to add one.
 </Card>
 
 ## Product entry
 
 - Shell **sidebar**: **Agent** item (always-on like Tasks).
 - Studio chrome **header**: **Agent** button, opens a side panel with a simple chat.
-- **Dedicated page** `/studios/:id/agent` (and `/agent/:chatId`), with a conversation rail (New chat, Memory, **History** + recent chats). **History** opens an overlay with search, a date-grouped list, and a preview of the selected chat (Enter to open; the author can rename or delete). Go and Enter only open an item present in the filtered results; an unmatched search cannot open a hidden conversation or start a new one.
+- **Dedicated page** `/orgs/:orgHandle/:handle/agent` (with `/agent/:conversationId` under the same studio prefix), with a conversation rail (New chat, Memory, **History** + recent chats). **History** opens an overlay with search, a date-grouped list, and a preview of the selected chat (Enter to open; the author can rename or delete). Go and Enter only open an item present in the filtered results; an unmatched search cannot open a hidden conversation or start a new one.
 - Theme `agent`. New chats are private by default; the author can share them (read-only for everyone else).
 - The composer supports images and dictation: the microphone button records up to one minute, transcribes with Grok STT, and adds the result to the draft before sending.
-- Chat images are uploaded to **private Vercel Blob** (`studios/{profileId}/agent/{chatId}/image/…`) and served via the `/api/blob` proxy. The Eve model still receives a `data:` URL on the turn; in Postgres, `message.received` URLs point to the proxy. Deleting a chat removes the objects under the chat prefix.
-- Each studio has a plan-sized Agent image pool: **50 MB Free, 250 MB Pro, or 1 GB Business**. The composer AI credits popover links to a usage modal (space used / limit, file count) with an action to **delete all** images under `studios/{profileId}/agent/` and free space.
+- Chat images are uploaded to **private Vercel Blob** (`studios/{studioId}/agent/{chatId}/image/…`) and served via the `/api/blob` proxy. The Eve model still receives a `data:` URL on the turn; in Postgres, `message.received` URLs point to the proxy. Deleting a chat removes the objects under the chat prefix.
+- Each studio has a plan-sized Agent image pool: **50 MB Free, 250 MB Pro, or 1 GB Business**. The composer AI credits popover links to a usage modal (space used / limit, file count) with an action to **delete all** images under `studios/{studioId}/agent/` and free space.
 
 | Route | Use |
 | --- | --- |

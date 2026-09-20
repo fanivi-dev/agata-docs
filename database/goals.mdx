@@ -13,7 +13,7 @@ description: "goals, goal_milestones, goal_links, goal_images, and vision boards
 | `progress_mode` | Default `manual` |
 | `manual_progress_percent` | |
 | `start_date_key` / `target_date_key` | Local days |
-| `visibility` | `members` \| `followers` \| `public`. Default `members`. Public catalog: `/@handle/goals/:id`. Vision boards stay members-only. |
+| `visibility` | `members` \| `subscribers` \| `followers` \| `public`. Default `members`. Public catalog: `/@handle/goals/:id`. |
 | soft delete | |
 
 Indexes by profile and (profile, user, updated).
@@ -35,6 +35,19 @@ Polymorphic link:
 | --- | --- |
 | `link_type` | Linked entity type |
 | `entity_id` | TEXT |
+| `revision` | Optimistic concurrency for AI undo (`000098`) |
+
+Unique `(goal_id, link_type, entity_id)`.
+
+## `goal_milestone_links`
+
+Optional display grouping for an existing goal link (`000098`). One milestone per link; deleting the link or milestone cascades the association. Does not alter linked progress math.
+
+| Column | Notes |
+| --- | --- |
+| `milestone_id` / `goal_link_id` | Composite PK |
+| `revision` | Association revision |
+| `created_by` | User who created the association |
 
 ## `goal_images`
 
@@ -55,6 +68,7 @@ Source: `000058_vision_boards.up.sql`. Visual collages in the Goals app.
 | `background_kind` | `color` \| `image` |
 | `background_value` | Preset (`paper`, `linen`, …) or URL |
 | `canvas_width` / `canvas_height` | Virtual canvas (default 1600×1000) |
+| `visibility` | `members` \| `subscribers` \| `followers` \| `public`. Default `members`. Public catalog: `/@handle/boards/:id`. Linked goals are filtered to the viewer's allowlist. |
 | soft delete | |
 
 Index by profile + `updated_at`.

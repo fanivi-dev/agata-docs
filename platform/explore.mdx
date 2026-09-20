@@ -12,7 +12,8 @@ directory, search engine, or follow graph.
 /explore
 ```
 
-Platform nav: Studios → Connections → **Explore**.
+**Explore** is in the account-wide sidebar alongside Studios, Following,
+Connections, and Inbox.
 
 ## What it ranks
 
@@ -29,12 +30,18 @@ too: type `@handle` or a name that slugs to one. It uses the same
 | Signal | Source |
 | --- | --- |
 | Followers | `followerCount` on the public studio |
-| Public activity | Counts from public recipes, collections, library items, goals, and meal days |
+| Subscribers | `subscriberCount` on the public studio |
+| Starting price | Lowest active `membershipPlans` amount (EUR, month or year) |
+| Public activity | Counts from public recipes, collections, library items, goals, meal days, notes, routines, boards, and habits |
 | Kind | Person or organization |
 | Public presence | Bio and image on the public studio |
 | Follow / member | `isFollowing` and `viewerIsMember` |
 
 Sort defaults to that mix. You can switch to followers, public activity, or name.
+
+`GET /api/p/:handle` also returns `isSubscribed`, `viewerCanMessage`, and
+active `membershipPlans`. Join and Message live on the public studio,
+not on Explore.
 
 ## Capabilities
 
@@ -44,6 +51,20 @@ Sort defaults to that mix. You can switch to followers, public activity, or name
 | Search | Name, handle, bio, or exact `@handle` lookup |
 | Follow | Same `POST` / `DELETE /p/{handle}/follow` as the public studio page |
 | Open | `/@handle` |
+
+Active scope filters also apply to exact handle matches. Empty filtered results
+provide **Clear filters** to reset the search and scope. An empty recommendation
+list links to Connections.
+
+## Following
+
+`/following` lists followed and subscribed Studios. Search by name or handle,
+then narrow to Followed or Subscribed. Empty search results offer a filter
+reset; an empty account list links to Explore.
+
+## AI relevance sort
+
+With a non-empty search query, **Sort by relevance with AI** reranks the current visible public candidate set (at most 24 handles). Order is view-local and keyed by query, scope, sort, and candidates; stale responses are discarded. Undo restores the prior sort. No server-side ranking model is stored.
 
 ## Stack
 
@@ -56,4 +77,5 @@ Sort defaults to that mix. You can switch to followers, public activity, or name
 
 - A substitute for Connections (people you invite as members).
 - A substitute for Studios (workspaces you run or belong to).
+- A substitute for [Memberships](/platform/memberships) or Follow.
 - A new ranking product or stored recommendation model.

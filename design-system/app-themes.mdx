@@ -7,15 +7,11 @@ Every studio area can set its own accent without forking components.
 
 ## Canonical values
 
-```ts
-// packages/ui/context/app-theme-context.tsx
-'today' | 'weekplan' | 'calendar' | 'tasks' | 'notebook' | 'activities'
-| 'nutrition' | 'finance' | 'health' | 'library' | 'pomodoro' | 'goals'
-| 'agent' | 'projects' | 'tags'
-```
+`APP_THEMES` in `packages/ui/context/app-theme-context.tsx` defines the allowed
+values. `AppTheme` is the corresponding TypeScript union.
 
 | Theme | Typical areas | Family | OKLCH hue |
-| --- | --- | --- | --- |
+| --- | --- | --- |
 | `today` | Today | Coral | 42 |
 | `weekplan` | Week plan | Aquamarine | 200 |
 | `calendar` | Calendar | Red | 20 |
@@ -35,14 +31,11 @@ Every studio area can set its own accent without forking components.
 ## How it is applied
 
 1. The shell resolves the area from the path.
-2. It wraps with `data-app-theme="…"` and/or `AppThemeProvider`.
+2. It supplies both `AppThemeProvider` and a matching `data-app-theme="…"`.
 3. Components that use the official Astryx accent tokens inherit the tint.
 
 ```tsx
-import {
-  AppThemeProvider,
-  type AppTheme,
-} from '@agata/ui/context/app-theme-context';
+import { AppThemeProvider } from '@agata/ui/context/app-theme-context';
 
 <AppThemeProvider theme="finance">
   <div data-app-theme="finance">{children}</div>
@@ -51,34 +44,34 @@ import {
 
 Helpers: `useAppTheme`, `resolveAppTheme`, `isAppTheme`.
 
-## CSS
+## CSS and portals
 
-In `globals.css`:
+`packages/ui/styles/globals.css` owns palette values. Each `[data-app-theme]`
+scope overrides official accent, overlay, and focus variables with light/dark
+values. Do not copy the palette into features or add Agata token aliases.
 
-```css
-[data-app-theme="finance"] {
-  --color-accent: light-dark(oklch(52% 0.16 147), oklch(76% 0.14 147));
-  --color-accent-muted: light-dark(oklch(52% 0.16 147 / 14%), oklch(76% 0.14 147 / 18%));
-  --color-text-accent: var(--color-accent);
-  --color-icon-accent: var(--color-accent);
-  --focus-outline-color: var(--color-accent);
-}
-```
+Context carries theme identity; the DOM attribute applies CSS. They must agree.
+Dialog, Sheet, AlertDialog, and popup Combobox can inherit context and accept
+an explicit root `appTheme`. Popover content may need its own `data-app-theme`
+wrapper; DropdownMenu accepts the attribute on its root. Selector and
+MultiSelector retain the upstream field/context contract without an Agata
+content-slot prop.
 
 ## Transactional email
 
-Transactional emails sent from `@agata.in` / `@updates.agata.in` use the product brand color defined by the email chrome. Email HTML is outside the app token runtime. The from-name is the product (Agata, Tasks, Finance, Calendar, Library, Activities), not each app's color chrome. Shared chrome: `apps/api/internal/adapters/email/chrome.go` and `apps/app/shared/lib/server/resend-email.ts`.
+Transactional email HTML is outside the app token runtime. Its brand color and
+sender name belong to the email owners:
+`apps/api/internal/adapters/email/chrome.go` and
+`apps/app/shared/lib/server/resend-email.ts`.
 
 ## Good practice
 
-- One "active" theme per primary view.
-- The canonical palette spreads 15 hues around OKLCH (roughly 20° minimum between neighbours). Finance (147) and Library (246) are fixed. Do not nudge one theme toward another by changing a hue locally: redistribute the whole palette and validate light and dark.
-- On composite surfaces (Today and Calendar, for example) the container keeps its primary theme while each row, group or control from another domain scopes its own `data-app-theme`. Grouping a source under Calendar does not change its origin color.
-- Primary chrome stays neutral; the theme shows up in accent, tint, selection, focus and small indicators.
-- Domain color must not flood the page background.
-- Marketing/landing may use per-item `data-app-theme` dots in the connected-studio proof and Goal Runway chips.
-- Never mix two accents in the same button.
-
-## Select and list highlights
-
-Some components (Select, for one) read the context theme for interactive list highlights (`interactiveListItemHighlightClasses`).
+- Keep one active theme per primary view and one accent per control.
+- Finance (147) and Library (246) are fixed palette anchors. Review changes
+  against the whole palette and both color schemes; avoid feature-local hues.
+- Composite views keep their primary theme while source rows or controls may
+  scope their own domain theme. Grouping a source under Calendar does not
+  change its origin color.
+- Keep primary chrome neutral. Use accent in actions, tint, selection, focus,
+  and small indicators instead of page background fills.
+- Marketing may use scoped app-theme indicators to identify connected apps.

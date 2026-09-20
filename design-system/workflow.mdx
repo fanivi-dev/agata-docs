@@ -1,72 +1,58 @@
 ---
-title: "Paper → code → Storybook workflow"
-description: "How to design in Paper, implement in the monorepo, and keep Storybook current."
+title: "UI workflow"
+description: "Implement from the shared contract; use Paper and Storybook when requested."
 ---
 
-Every new or redesigned product surface follows **three steps, in this order**. Paper is the source of visual intent; code and Storybook are the implementation and the playground.
+Start with `DESIGN.md` §0 and §5, the existing screen family, and the local
+`@agata/ui` components. `AGENTS.md` owns execution policy. Ordinary UI work uses
+source review and scoped static checks.
 
-**Agents:** do not open Paper, edit Paper, update Storybook source, or run Storybook unless the user explicitly asked. Implement from `DESIGN.md` and existing wrappers.
+## Default workflow
 
-Skip Paper only when the change is not visual (copy/i18n, a logic bug, a token rename with no layout impact). Do not invent a visual language in code.
+1. Identify the page family, reusable components, shared chrome, and data states.
+2. Implement product UI in `apps/app/features/<product>/domains/`. Keep data I/O
+   behind service aggregators and shared app compositions in `shared/`.
+3. Prefer Astryx component props and layout primitives. Use StyleX only for
+   requirements the existing APIs cannot express.
+4. Author copy in `messages/en/` and synchronize `messages/es/`.
+5. Remove replaced code and update the affected stable documentation.
+6. Run the scoped static checks required by `AGENTS.md`. Report what they prove
+   and any runtime behavior that remains unverified.
 
-<Steps>
-  <Step title="Design in Paper">
-    Open the file in **Paper Desktop** ([paper.design](https://paper.design)). Opening a file starts the local MCP at `http://127.0.0.1:29979/mcp`.
+Browser sessions, screenshots, tests, builds, Paper, and Storybook require an
+explicit user request. A UI change alone does not authorize them. Requesting
+Paper does not automatically authorize Storybook or browser verification.
 
-    Canonical **Agata** file: Cover, Tokens, Icons, UI, **Workflow** (feature lifecycle), Patterns, **Layout** (app chrome and page templates), Themes, Accessibility, Content, and product pages (Today, Week plan, Tasks, Goals, Finance, …).
+## When Paper is requested
 
-    Under **UI**, artboards follow the Storybook folders: Actions, Data, Disclosure, Display, Feedback, Forms, Layout, Navigation, Overlays, Typography. Each row is a named cloneable (`Button / default`).
+Use Paper Desktop and the actual open file. Reuse the existing kit, patterns,
+and product frames. Keep C2 density, semantic tokens, and one active app accent.
+Include Default, Empty, Loading, and Error states where the product has them;
+add a narrow layout when its structure changes.
 
-    **UI holds only primitives that `packages/ui` ships.** Anything composed in `apps/app/shared/components/` — `FilterBar`, `CalmEmpty`, `GuidedSection`, `CollectionBanner`, `PaginationControls`, Stream — is documented on **Patterns**, even when Storybook files it under a component folder.
+The canvas records visual intent. Component source owns executable behavior
+and exact props. Treat Paper HTML/JSX as reference material, never as code to
+paste into the app. If the file is unavailable, report the missing reference
+rather than guessing what it contains.
 
-    - Flex frames that already respect **C2** density, the page family, and a single app accent.
-    - The states the product actually has: Default, Empty, Loading, Error.
-    - Desktop by default; add a narrow frame when the layout really changes.
-    - Semantic tokens and `@agata/ui` pieces. No parallel kit, no one-off hex.
-    - Paper's HTML/JSX is **reference only**. It is never pasted into `apps/app` or `packages/ui`.
-  </Step>
-  <Step title="Implement in code">
-    Translate the frame into the existing stack.
+Keep requested frames aligned with the implementation or mark them stale.
 
-    - Product screen → `apps/app/features/<product>/` + `#/services/{domain}`.
-    - Reusable chrome → `packages/ui` (only once a second caller needs it).
-    - `@agata/ui` wrappers and layout helpers (`appPageShell`, `FilterBar`, `CollectionBanner`, overlays) **before** loose classes.
-    - Visual contract: `DESIGN.md` §0. Copy authored in `en`, then translated to `es`.
-  </Step>
-  <Step title="Update Storybook">
-    A visual change is not done until Storybook matches the Paper frames.
+## When Storybook is requested
 
-    ```bash
-    bun run dev:storybook
-    ```
+Use `apps/storybook` for component stories, shared patterns, and page fixtures.
+Automated hosted builds are disabled, so local source is the current inventory.
+See `DESIGN.md` §7 for locations, providers, and explicit Node.js commands.
 
-    Review locally. Automated Storybook Vercel builds are disabled, so [storybook.agata.in](https://storybook.agata.in) is not current.
+- Components use a literal category/title, `autodocs`, and meaningful variants.
+- Pages use DS primitives and local English fixtures. They do not import
+  `apps/app` or `#/*`. Use `Default`, `Empty`, `Loading`, and `ErrorState` where
+  applicable.
+- Pattern stories may use real props-driven app components when they do not
+  depend on route/session/server state. Explain necessary mirrors in the story.
+- Delete stories and variants made obsolete by the requested Storybook change.
 
-    - New or touched DS component → `apps/storybook/stories/<category>/` (`autodocs`, StyleX variants, `Default` plus meaningfully different variants).
-    - Product screen → `apps/storybook/stories/pages/<product>/<screen>/` (`Default` / `Empty` / `Loading` / `ErrorState`). **Never** import `apps/app` or `#/*`.
-    - Delete stories and variants the change leaves dead.
-  </Step>
-</Steps>
-
-## Agents and MCP
-
-Paper Desktop must have **a file open**. If MCP does not respond, open one and retry; do not guess the layout.
-
-Agents read the canvas (`get_screenshot`, `get_jsx`, `get_computed_styles`, tree helpers) and only write when asked to iterate on the design. Local configuration:
-
-| Client | Where |
-| --- | --- |
-| Grok | `.grok/config.toml` → `http://127.0.0.1:29979/mcp` |
-| Cursor | `.cursor/mcp.json` → the same URL |
-
-Paper docs: [paper.design/docs/mcp](https://paper.design/docs/mcp).
-
-## What this workflow is not
-
-- Paper does not replace `@agata/ui`. The canvas proposes; the package implements.
-- Storybook `pages/` stories are visual mocks, not the real screen.
-- A tweak to an existing control does not require a new Paper file — but it does require the story to stay aligned when the look changes.
-- It does **not** cover schema, API, Eve, catalog, seed, QA or Vercel. That lives in [Feature lifecycle](/architecture/feature-lifecycle).
+Updating story source does not authorize running Storybook, a build, or a
+browser session. Perform only the requested verification.
 
 ## Related
 
@@ -74,4 +60,3 @@ Paper docs: [paper.design/docs/mcp](https://paper.design/docs/mcp).
 - [Contributing to the design system](/design-system/contribution)
 - [Principles](/design-system/principles)
 - [Patterns](/design-system/patterns)
-- Operational guide for agents: `DESIGN.md` §6
