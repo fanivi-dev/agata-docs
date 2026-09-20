@@ -5,6 +5,94 @@ description: "Relevant changes to Agata's HTTP contract."
 
 We treat the changelog as first-class documentation: visible, dated, and linked.
 
+## URL history (browser vs HTTP)
+
+| Era | Browser (team app) | HTTP |
+| --- | --- | --- |
+| Current | `/orgs/:orgHandle/:handle/...` | `/api/.../profiles/{studioId}/...` |
+| 2026-09-10 | `/profiles/:handle/...` (UUID → handle redirect) | `/api/.../profiles/{studioId}/...` |
+| Pre-rename | `/workspaces/:workspaceId/...` | `/api/.../workspaces/...` |
+
+Older changelog bullets that say team-app `/profiles/:handle` or
+`/workspaces/...` describe that day’s ship. Browser URLs later moved to
+**`/orgs/`**. HTTP stayed on `profiles` after the workspace → profile rename.
+Legacy browser `/studios` and `/workspaces` still 308 into the current org flow.
+
+## 2026-09-19
+
+### Integrated AI actions
+
+- Added durable Studio-scoped operation claim, read, and finalize endpoints under `/ai-capabilities/profiles/{studioId}/operations`.
+- Added direct-apply and conditional Undo endpoints for task tags, project, and priority; Finance transaction categorization; and Library item organization.
+- Domain writes validate a short lease and source revision in the same transaction that records reversible effect receipts. Terminal operation receipts are retained for seven days; applied effects have a 24-hour Undo window.
+- Provider input and output are not stored raw by the capability runtime. Operational telemetry uses hashed actor, Studio, and entity identifiers and content-free counts.
+
+### Owner chat
+
+- `POST /p/{handle}/messages/thread` opens the entitled owner-chat thread without sending a message. It replaces the mutating `GET /p/{handle}/messages` operation.
+
+### Membership checkout
+
+- Reservations revalidate selling eligibility transactionally and scope retry keys to buyer, Studio, and plan. Terminal reservations release their keys for later purchases.
+- Membership checkout and cancellation updates bypass permanent HTTP response replay; their domain state handles retries and revalidation.
+- Cancellation reads share the Stripe projection lock, preventing duplicate scheduled-cancellation notifications from concurrent updates.
+
+### Removed geographic places
+
+- Removed the Places HTTP domain, its OpenAPI schemas, and every place association from product and public-share contracts.
+- Migrations `000091_drop_task_place` and `000092_drop_places` remove the obsolete foreign keys, route data, indexes, and `places` table.
+
+## 2026-09-16
+
+### Profiles and following
+
+- `ProfilesProfile` responses include `handle`, `kind`, and optional `bio` (aligned with Go).
+- `GET /users/me/following` lists entitled subscriptions as well as follows; each row includes `isSubscribed`.
+- Share **write** schemas that were missing it now document `subscribers` in the visibility enum.
+- JSON **responses** use `studioId`; legacy **inputs** may still send `profileId` on `POST /internal/membership/stripe/sync` (accepted when `studioId` is omitted).
+
+### Organizations
+
+- `PATCH /organizations/{organizationId}` accepts optional `name` and `handle` (slug, unique while not permanently deleted).
+- Org invitations: list/send/cancel under the org; `POST /organizations/invitations/{invitationId}/accept` and `…/reject` for the invitee.
+- `POST /organizations/{organizationId}/leave`, `…/transfer-ownership`, `…/soft-delete`, `…/restore`, and `DELETE …/permanent` complete lifecycle (delete requires zero studios and no pending invites).
+- `GET /organizations/{organizationId}` returns org summary (`handle`, counts, `canManage`), members, org-owned studios, and teams with assignments (`studioId` on each assignment).
+
+### Membership checkout
+
+- `POST /profiles/{studioId}/membership/checkout` reserves a persisted intent (`idempotencyKey`, relative `returnPath` only) before Stripe Checkout; reuses an open session when one exists.
+- `PATCH /profiles/{studioId}/membership/checkout/{intentId}` attaches the Stripe Checkout session id after Next creates the session.
+
+### Schema (written, not applied locally)
+
+- Migrations `000087`–`000090`: org handles/invitations/lifecycle, `profile_member_grants`, `membership_checkout_intents`, subscription monotonicity columns, and `profile_purge_jobs`. See [Schema changelog](/database/changelog).
+
+## 2026-09-13
+
+### Memberships and owner chat
+
+- Public `GET /p/{handle}` adds `subscriberCount`, `isSubscribed`,
+  `viewerCanMessage`, and active `membershipPlans`.
+- `POST /p/{handle}/messages` — get-or-create subscriber thread (perk
+  `owner_chat`).
+- Owner: `/profiles/{studioId}/membership/plans` CRUD,
+  `/subscribers`, `/connect`, `/connect/onboarding`.
+- Fan: `GET /users/me/subscriptions`,
+  `PATCH /users/me/subscriptions/{subscriptionId}` (`cancelAtPeriodEnd`).
+- Messages: `/messages/threads`, send / read / block.
+- Internal: `POST /internal/membership/stripe/sync` (`CRON_SECRET`).
+  Does not write `profiles.profile_plan`.
+- Share visibility gains `subscribers`. Miss stays 404.
+
+### Public share rows (notes, routines, boards, habits)
+
+- `GET /p/{handle}/notes` and `GET /p/{handle}/notes/{noteId}` — published `blog` / `research` / `report` notes the viewer may see.
+- `GET /p/{handle}/routines` and `GET /p/{handle}/routines/{routineId}` — exercise templates (blocks, no sessions).
+- `GET /p/{handle}/boards` and `GET /p/{handle}/boards/{boardId}` — vision boards; goal pins filtered to visible goals.
+- `GET /p/{handle}/activities` and `GET /p/{handle}/activities/{activityId}` — habit templates only (no logs, streaks, or assignees).
+- Member create/update accept `visibility` on notes, routines, vision boards, and activities (`members` \| `followers` \| `public`, default `members`).
+- Nested public GETs honor row visibility even when the studio catalog is private.
+
 ## 2026-09-11
 
 ### Public share rows
@@ -17,21 +105,21 @@ We treat the changelog as first-class documentation: visible, dated, and linked.
 ### Profiles — unique name
 
 - Create and rename derive `handle` from `name` and reject a taken or reserved slug (`DUPLICATE_RESOURCE` / `VALIDATION_ERROR`). No `_2` suffix.
-- Team app URLs use `/profiles/:handle`. A UUID path redirects to the handle. HTTP stays `/api/profiles/:profileId`.
+- Team app URLs use `/profiles/:handle` (superseded later by `/orgs/:orgHandle/:handle`; see URL history above). A UUID path redirects to the handle. HTTP stays `/api/profiles/:studioId`.
 
 ### Profiles — page visibility
 
 - `ProfilesProfile.visibility`: `private` \| `public` (default `private` on create).
-- `PATCH /profiles/{profileId}` accepts `visibility`.
+- `PATCH /profiles/{studioId}` accepts `visibility`.
 - Public `GET /p/{handle}` and nested public reads return 404 when the profile is private and the viewer is not a member. Followers who are not members get 404. `POST /p/{handle}/follow` is the same miss.
 - Migration `000080_profile_visibility`. Additive. Local migrate-up applied 2026-09-10 (79 → 80).
 
 ### Workspace → Profile rename
 
-- Tenancy HTTP: `/api/workspaces` → `/api/profiles`. Domain routes: `/api/{domain}/workspaces/:workspaceId` → `/api/{domain}/profiles/:profileId`.
-- JSON: `workspaceId` → `profileId`.
+- Tenancy HTTP: `/api/workspaces` → `/api/profiles`. Domain routes: `/api/{domain}/workspaces/:workspaceId` → `/api/{domain}/profiles/:studioId`.
+- JSON: `workspaceId` → `studioId`.
 - Public HTTP: `/api/profiles/:handle` → `/api/p/:handle`. Browser `/@handle` unchanged; RSC `/p/[handle]`.
-- Team app: `/workspaces/:workspaceId` → `/profiles/:handle` (UUID URLs redirect). Legacy 308: `/workspaces` → `/profiles`, `/workspaces/:id/*` → `/profiles/:id/*`. API stays `/api/profiles/:profileId`.
+- Team app: `/workspaces/:workspaceId` → `/profiles/:handle` (UUID URLs redirect). Legacy 308: `/workspaces` → `/profiles`, `/workspaces/:id/*` → `/profiles/:id/*`. API stays `/api/profiles/:studioId`.
 - Schema: migration `000079` (written, not applied). Tables `workspaces` → `profiles`, `workspace_members` → `profile_members`; column `workspace_id` → `profile_id`.
 - Breaking for internal clients that still call `/workspaces` paths or send `workspaceId`.
 
