@@ -19,7 +19,7 @@ description: "Meals, recipes, pantry, shopping, and weekly planner."
 
 Both screens open with the same **date control** as [Today](/workspace/today), Activities, and [Week plan](/apps/week-plan): arrows, **Today** button, Mon–Sun strip, and a calendar to jump to any day. In Meals the day goes in `?dateKey=`; in Planner, `?dateKey=` (any day of the week) or `?week=` (Monday).
 
-Both screens share the same **7 days × 4 meals** grid (breakfast, lunch, dinner, snack), with the snack row collapsed by default. A meal log (and a planner slot when you are logging eating out) can attach an optional **venue** — a `places` pin, not pantry `location`.
+Both screens share the same **7 days × 4 meals** grid (breakfast, lunch, dinner, snack), with the snack row collapsed by default.
 
 - **Day header** — day kcal and a bar for the protein / carbs / fat split (exact values on hover).
 - **Chips** — title, servings, kcal, and avatars of who eats it. If there are no avatars, the general audience is implicit and no extra label is shown. In **Meals**, everything from today backward is marked *eaten*; later slots stay *planned*. In **Planner** everything is *planned* until you activate the plan.
@@ -45,6 +45,22 @@ The ingredient block is an inline editor: each row has name, quantity, and unit,
 
 Quantities are **absolute**: they describe the servings the recipe itself declares, so the servings selector **does not** rescale them — it changes the stored value and the block header (*for N servings*) reflects it.
 
+Each ingredient row also has an optional **food category** (native selector, clearable) and **Set food category with AI** beside it. Recipe tags use **Add recipe tags with AI** on the recipe header (additive, up to three tags per run).
+
+### AI classification
+
+Field-local controls (with undo) cover:
+
+- **Recipe tags** — additive tag suggestions on the recipe page.
+- **Meal type** — exclusive classification when editing a meal log.
+- **Food category** — exclusive classification on recipe ingredients, pantry items, and shopping items (same category list everywhere).
+
+Manual category edits use the same selector; clearing removes the stored category.
+
+### Ingredient replacement
+
+Each ingredient row has **Replace ingredient with AI** (curated catalog, unit/ratio math in the API). Studio **Ingredient preferences** in the recipe overflow menu stores excluded catalog ingredients, allergens, and required diet labels; changing preferences invalidates in-flight substitution results. Undo restores the full prior row when its revision is unchanged.
+
 ### Tools
 
 Utensil list (name only): same inline-edit pattern, reorder, and maximum **200** per recipe. They are not sent to shopping.
@@ -67,19 +83,26 @@ The list is **grouped by provenance**, not by aisle: *Below minimum* (`source: l
 
 - **Metrics** — to buy (with a progress bar of what is already bought), from recipes, below minimum, and assigned.
 - **Filters** — `All`, `Mine`, `Auto-added` (recipe + pantry), and `Bought`, plus search over name, unit, and origin.
-- **Right rail** — shopping-run summary and **suggestions**: pantry items below their minimum that are not yet on the list, with *Add all* (bulk create). The run can also **set a store** (name, date, place) on a shopping collection. That place is geography; it is not pantry storage.
-- **Detail** (`/nutrition/shopping/[itemId]`) — *Why it is on the list* links to the source recipe or pantry item; activity (created / bought / last change); quantity, status, and assignment. When the item comes from a pantry minimum, *Mark as bought* can **top the pantry up** in the same gesture.
-- **Store mode** (`/nutrition/shopping/store`) — single column, large rows, and group-by-group progress with a progress bar. Ticking here writes the same status as the list. The aisle checklist itself stays unchanged.
+- **Right rail** — shopping-run summary and **suggestions**: pantry items below their minimum that are not yet on the list, with *Add all* (bulk create). The run can also **set a store** (name and date) on a shopping collection.
+- **Detail** (`/nutrition/shopping/[itemId]`) — *Why it is on the list* links to the source recipe or pantry item; activity (created / bought / last change); quantity, status, and assignment. When the item comes from a pantry minimum, *Mark as bought* can **top the pantry up** in the same gesture. If the linked recipe was deleted, the row keeps the line with provenance *From a recipe that no longer exists*; **Keep as manual item** clears the recipe link and leaves a normal manual shopping line (`clearRecipeLink` on PATCH).
+- **Store mode** (`/nutrition/shopping/store`) — single column, large rows, and group-by-group progress with a progress bar. Ticking here writes the same status as the list. Each visit starts with items that are still pending; purchases from previous visits
+  are excluded from its cart counter. Rows remain visible after being checked so
+  they can be unchecked during the visit. A completed visit shows a completion
+  message. Each row stays disabled until its status write finishes.
 
 ## Inventory: the pantry
 
-Items are grouped by **location** (`location`), with a count and how many need attention. Each row shows the stock bar against its minimum, the expiry pill, and the quantity stepper. Pantry `location` is a storage shelf (Fridge, Cupboard), **not** a map place. Do not treat it as geography.
+Items are grouped by **location** (`location`), with a count and how many need attention. Each row shows the stock bar against its minimum, the expiry pill, and the quantity stepper. Pantry `location` is a storage shelf such as Fridge or Cupboard.
 
 - **Metrics** — active, expired, expiring (7 days), and below minimum (with *Send all to shopping*). The attention bar counts each item once, including items with no stock, even when it is both low and near expiry.
 - **Use it up first** — strip of what expires in the next week.
 - **Filters** — `All`, `Low stock`, `Expiring`, `Expired`, search, and location facet. A filtered view with no matches offers **Clear filters**, which resets search, scope, and location; the first-item prompt appears only when the pantry is empty.
 - **To shopping** — creates the item with `source: low_stock` and `inventoryItemId`, for the amount missing to the minimum. If one is already pending, the row shows *On the list* instead of the button.
 - **Detail** (`/nutrition/inventory/[itemId]`) — stock bar with the minimum mark, expiry, linked shopping items, notes, quantity stepper, and edit in a side panel.
+
+Pantry create and edit panels identify invalid fields next to their controls.
+Quantity and restock actions show pending state and prevent overlapping writes.
+Deleting a meal plan requires confirmation naming the week and number of slots.
 
 ## Collaboration
 
@@ -108,7 +131,7 @@ Empty `assignedTo` = general audience, no visible label. The **All** filter show
 
 ## Insights
 
-The **Insights** tab (`/nutrition/insights`) summarizes log consistency (date window), macros only when known, mix by meal, planner occupancy, low/expired inventory, and pending shopping. API: `GET /api/nutrition/studios/:profileId/insights-summary?startDateKey=&endDateKey=&todayLocalDateKey=`.
+The **Insights** tab (`/nutrition/insights`) summarizes log consistency (date window), macros only when known, mix by meal, planner occupancy, low/expired inventory, and pending shopping. API: `GET /api/nutrition/profiles/:studioId/insights-summary?startDateKey=&endDateKey=&todayLocalDateKey=`.
 
 ## Main routes
 

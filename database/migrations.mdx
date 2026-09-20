@@ -14,6 +14,10 @@ apps/api/db/migrations/
 
 Tooling: **golang-migrate**. Control table: `agata_schema_migrations`.
 
+Latest migration in the repository tree: **`000101_pomodoro_ai_revision`**.
+See [Schema changelog](/database/changelog) for `000097`–`000101` and earlier
+history.
+
 ## Current order
 
 | # | Name | Contents |
@@ -90,6 +94,11 @@ Tooling: **golang-migrate**. Control table: `agata_schema_migrations`.
 | 072 | checkin_sleep_quality | replace sleep duration and pressure with three-point sleep quality and day ratings |
 | 079 | workspace_to_profile | `workspaces` → `profiles`, `workspace_members` → `profile_members`, `workspace_id` → `profile_id`. **Written, not applied.** |
 | 083 | feedback_source_profile_name | `feedback_submissions.source_workspace_name` → `source_profile_name` |
+| 084 | share_visibility_notes_routines_boards_activities | `visibility` on notes, exercise routines, vision boards, and activities |
+| 085 | agent_usage_accounts_scope_profile | `agent_usage_accounts.scope_kind`: `workspace` → `profile`. **Written, not applied.** |
+| 086 | share_subscribers_membership | Share `visibility` gains `subscribers`. Connect, plans, fan billing, subscriptions, webhook inbox, owner-chat tables |
+| 091 | drop_task_place | Removes the obsolete `tasks.place_id` association and index. Local migrate-up applied 2026-09-19 (90 → 91). |
+| 092 | drop_places | Removes the discarded geographic Places table, remaining associations, and health route data. Local migrate-up applied 2026-09-19 (91 → 92). |
 
 (There is no `000008` in the repo. Intermediate rows are missing from this table on purpose if they were not documented.)
 
@@ -106,6 +115,8 @@ bun run api:migrate-force   # only with care
 The API container (`Dockerfile.vercel`) runs `migrate up` in the entrypoint **before** starting the server. With `MIGRATE_DATABASE_URL` (or `DATABASE_URL`) in the Vercel project, every deploy (and every container cold start) applies pending migrations so the prod schema does not lag behind `dev`.
 
 `cmd/migrate up` is a **fast no-op** when the DB is already at the head version (log `status=noop`), so there is no need to skip migrations in the entrypoint to save CPU — the drift risk is not worth it.
+
+If the control table is **dirty**, `migrate up` forces that version clean (`status=dirty-reset`) and continues. A failed version is transactional, so this unblocks boot and later files instead of panicking every cold start. The container entrypoint also starts the API if `migrate up` still exits non-zero.
 
 `bun run api:build` also runs `migrate up` at the end (useful locally if there is a DSN in `.env.local`).
 
