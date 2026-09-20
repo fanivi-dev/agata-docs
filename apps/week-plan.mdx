@@ -20,7 +20,7 @@ It lives in the **Daily** section of the shell (theme `weekplan`, distinct from 
 - Three views (`?view=`): **Board** (Mon–Sun columns), **List** (grouped by day), and **Day** (focus on one day, `?day=YYYY-MM-DD`) — the `view` param is written on every tab change (including `view=board`)
 - Long titles and notes are truncated on the board (2 + 1 lines) and in list/day (2 + 2); the full text appears on hover and in the sheet
 - Create and edit in a **side sheet** (same pattern as Calendar / Tasks)
-- Fields: title, notes, optional **place** (name), **day(s)** of the week or **Later** (no day), **week intent** (short text in the header)
+- Fields: title, notes, **day(s)** of the week or **Later** (no day), **week intent** (short text in the header)
 - On create, **Days** supports multi-select: one submit creates one item per day (and a weekly series per day, if selected)
 - **Later**: a tray under the intent to park items for *this* week until you know the day. Capture in a field + Enter. Drag onto a day to place them. They do not count toward progress, do not appear in Calendar, and cannot be marked done. Dragging a **Weekly** item here pauses the series (this occurrence stays in Later). **Carry over** also brings Later items from the previous week.
 - **Add from tasks**: creation-only picker of open tasks; optionally stores `sourceTaskId`. Marking the item done completes the task; unmarking reopens it to `todo`.
@@ -30,6 +30,7 @@ It lives in the **Daily** section of the shell (theme `weekplan`, distinct from 
 - Mark done (`doneAt`) on the board, list, and day views, and from the day line on [Today](/workspace/today). **Hide done** filter (`?hideDone=1`)
 - **Days** selector on board, list, and day: hides those weekdays from columns, sections, chips, and the Mon–Sun strip; keeps at least one day visible. The selection is saved in `user_preferences.appearance.weekPlanHiddenDays` (per user)
 - **Carry over** unfinished items from the previous week (same weekday; Later still has no day)
+- **Add tasks to this week with AI** evaluates up to 50 open tasks against the selected week and its saved intent, then adds up to five clear matches directly to **Later**. The created entries are ordinary task-linked items: they can be moved or deleted normally, and the action never schedules a day, changes a task deadline, creates recurrence, or enables email. The success toast offers Undo; Undo removes only items that have not since been moved, completed, edited, or attached to recurrence.
 - Compact week progress (`done/total`; fades when there are no items)
 - In board view: reorder with **drag and drop** within a day or between days (arrows as fallback)
 - Confirmation on delete
@@ -55,7 +56,7 @@ Week plan **does not** filter by project or tag: items do not belong to Projects
 | Concept | Role |
 | --- | --- |
 | **Week header** | One plan per `(studio, weekStartDateKey)` + optional `intent` |
-| **Item** | Entry for a day (or **Later**, `dateKey` null): title, short notes, done, order, optional place, and optional Task / habit links |
+| **Item** | Entry for a day (or **Later**, `dateKey` null): title, short notes, done, order, and optional Task / habit links |
 | **Weekly series** | `week_plan_series` (one weekday 0–6); each week materializes at most one item |
 | **Lazy create** | GET does not create the header; it is created when the first item is written (or when intent is saved). `POST /series/ensure` can create header+items when opening a week with active series |
 | **Calendar projection** | `dateKey` controls visibility automatically. A linked reminder is internal optional time/email metadata and is removed when the item moves to Later |
@@ -73,19 +74,22 @@ Week plan **does not** filter by project or tag: items do not belong to Projects
 
 ## API
 
-Prefix: `/week-plan/studios/:profileId`.
+Prefix: `/week-plan/profiles/:studioId`.
 
 | Method | Path | Notes |
-| --- | --- | --- |
+| --- | --- |
 | `GET` | `/by-week?weekStartDateKey=` | Plan + items; `id` is absent if there is no header yet |
 | `PATCH` | `/by-week` | Updates `intent` (lazy-creates the header) |
-| `POST` | `/items` | Creates item (+ lazy header); optional `dateKey` (Later); optional `sourceTaskId` / `sourceActivityId` / `calendarReminderId` / `placeId` / `repeatWeekly` |
-| `PATCH` | `/items/:itemId` | title / notes / done / dateKey (`""` = Later) / sortOrder / links / `clearCalendarReminder` / `clearTaskId` / `clearActivityId` / `placeId` / `clearPlaceId` / `repeatWeekly` / `stopRepeating`. Changing `dateKey` on a repeating item updates the series weekday; Later pauses the series |
+| `POST` | `/items` | Creates item (+ lazy header); optional `dateKey` (Later); optional `sourceTaskId` / `sourceActivityId` / `calendarReminderId` / `repeatWeekly` |
+| `PATCH` | `/items/:itemId` | title / notes / done / dateKey (`""` = Later) / sortOrder / links / `clearCalendarReminder` / `clearTaskId` / `clearActivityId` / `repeatWeekly` / `stopRepeating`. Changing `dateKey` on a repeating item updates the series weekday; Later pauses the series |
 | `DELETE` | `/items/:itemId` | Soft-delete (does not rematerialize that series date) |
 | `GET` | `/items/trash` | Up to 50 deleted items, including deletion time and whether the linked weekly series is paused |
 | `POST` | `/items/:itemId/restore` | Restores the occurrence only; it never reactivates a paused weekly series |
 | `POST` | `/items/reorder` | DnD: `{ id, sortOrder, dateKey? }[]`. A repeating item moved to another day updates the series weekday; Later pauses the series |
 | `POST` | `/series/ensure` | Materializes occurrences of active series in the week (`weekStartDateKey`) |
+| `GET` | `/ai-context?weekStartDateKey=` | Bounded authorized week intent, existing task links, and up to 50 open task candidates |
+| `POST` | `/ai-add-tasks` | Conditionally creates selected task-linked Later items under an AI operation lease |
+| `POST` | `/ai-effects/:operationId/undo` | Removes only unchanged items created by that operation |
 
 Schema details: OpenAPI tag **Week plan**. Schema: [week-plan (DB)](/database/week-plan).
 

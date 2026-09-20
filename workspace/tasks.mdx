@@ -11,7 +11,8 @@ description: "Studio task inbox."
 - Open a task **detail**
 - Use the **Focus** page from the studio sidebar or command palette
 - Enter **selection mode** from the inbox toolbar (select control, or shortcut `X`) for bulk changes
-- Assign project, tags, dates, reminders, and an optional **place** (name)
+- Assign project, tags, dates, and reminders
+- Use AI to add existing tags, assign a project, or set priority from the detail page
 - **Assign** the task to one or more studio members and see who created it
 - Write the body in the **rich-text editor**
 - Capture tasks on the fly (**quick capture**, shortcut **C**)
@@ -27,6 +28,13 @@ Rows/cards with a past due date show an **Overdue** badge (same tone as Focus).
 **Group** (by project or status) applies to both the **list** and **cards** views. If there are no assignees, no label is shown and no empty space is reserved on any surface.
 
 The **list** view shows the same contextual information as the card: status, priority, tags, subtasks, project, date, and assignees.
+
+On narrow screens, status, priority, and project stay visible below the task
+title. Collection scopes scroll horizontally and toolbar actions wrap to stay
+reachable.
+
+In Insights, **Completed this week** is an informational total. It does not open
+the all-time completed-task list; the status breakdown still provides that list.
 
 All studio content is visible to members. Collaboration is based on **who created** each item and **who is assigned** (tasks, activities, and calendar reminders) — not on private/public visibility.
 
@@ -44,9 +52,9 @@ Create one from the task form, the pin control in Today capture, the command pal
 
 API:
 
-- `GET /api/tasks/studios/:profileId/attention?todayLocalDateKey=YYYY-MM-DD`
-- `PUT /api/tasks/studios/:profileId/:taskId/attention`
-- `DELETE /api/tasks/studios/:profileId/:taskId/attention`
+- `GET /api/tasks/profiles/:studioId/attention?todayLocalDateKey=YYYY-MM-DD`
+- `PUT /api/tasks/profiles/:studioId/:taskId/attention`
+- `DELETE /api/tasks/profiles/:studioId/:taskId/attention`
 
 ## Subtasks as subpages
 
@@ -69,15 +77,15 @@ The main view prioritizes actionable work by date: first tasks with today's or a
 
 | Route | Use |
 | --- | --- |
-| `/studios/:id/tasks` | Inbox |
-| `/studios/:id/tasks/focus` | Focus: overdue and upcoming work |
-| `/studios/:id/tasks/:taskId` | Detail |
-| `/studios/:id/tasks/trash` | Trash for deleted tasks |
-| `/studios/:id/projects` | Projects |
-| `/studios/:id/tags` | Tags |
-| `/studios/:id/insights` | Insights (workload and progress) |
+| `/orgs/:orgHandle/:handle/tasks` | Inbox |
+| `/orgs/:orgHandle/:handle/tasks/focus` | Focus: overdue and upcoming work |
+| `/orgs/:orgHandle/:handle/tasks/:taskId` | Detail |
+| `/orgs/:orgHandle/:handle/tasks/trash` | Trash for deleted tasks |
+| `/orgs/:orgHandle/:handle/projects` | Projects |
+| `/orgs/:orgHandle/:handle/tags` | Tags |
+| `/orgs/:orgHandle/:handle/insights` | Insights (workload and progress) |
 
-**Trash** opens from the studio sidebar or command palette. From there you can restore or permanently delete. `?taskScope=trash` on `/tasks` **redirects** to `/tasks/trash` (it is not a list scope).
+**Trash** opens from the studio sidebar or command palette. From there you can restore or permanently delete.
 
 **Focus** is its own page, reachable from the studio sidebar or command palette. It always shows the Overdue / Today / Next 3 days / Next 7 days sections (with empty states if there are no items). Focus and Trash do not show the List / Insights collection tabs.
 
@@ -97,7 +105,7 @@ The **Insights** tab summarizes actionable work: open, overdue, due today, in pr
 
 Completed counts (and done/canceled totals) **include** archived items; open / overdue / due today **exclude** archived items — aligned with [Archive](#archive).
 
-API: `GET /api/tasks/studios/:profileId/insights-summary?todayLocalDateKey=YYYY-MM-DD`.
+API: `GET /api/tasks/profiles/:studioId/insights-summary?todayLocalDateKey=YYYY-MM-DD`.
 
 ## Relation to the rest
 
@@ -147,6 +155,48 @@ or a confirmed save.
 The body supports ProseMirror documents with anti-abuse limits: **50 000**
 characters, **20** images, and **5 MB** per image. Technical detail in
 [Edit rich text](/api/guides/edit-rich-text).
+
+## AI task actions
+
+On an active task detail, the sparkle controls can **add tags**, **assign a
+project**, or **set priority**. One click evaluates the current task and applies
+the result immediately; there is no proposal or confirmation step. A success
+toast offers a short-lived Undo action, and the normal property controls remain
+available to change or remove the result later.
+
+**Add tags with AI** compares the task with existing
+`general` and `tasks` tags in the same studio. It considers the title,
+canonical plain-text body, due date, status, priority, project, direct
+subtasks, and current tags. Comments, attachments, people, reminders,
+and raw editor JSON are excluded.
+
+The action adds at most three matching existing tags in one transaction. Each
+addition is revalidated against the current task, document version, compatible
+tag scope, and five-tag limit. It never replaces or removes an existing tag.
+Explicit metadata participates in the decision: for example, a high-priority
+task can match an existing urgent tag without requiring the word “urgent” in
+the title. When no relevant tag is found, Agata shows an informational toast.
+
+**Assign project with AI** chooses among active projects and updates the parent
+task and its existing subtasks together. It is unavailable on a subtask because
+subtasks inherit their parent project. **Set priority with AI** chooses only the
+supported low, medium, or high value. Both actions abstain on weak or ambiguous
+evidence instead of forcing a write.
+
+All three writes use a short operation lease, a fresh source revision check,
+and effect receipts. Replaying the same completed operation returns its stored
+result; a stale operation cannot overwrite a newer manual edit. Undo restores
+only unchanged effects created by that operation, so it does not erase later
+tag, project, or priority changes.
+
+These capabilities are always available for eligible active tasks and do not
+consume Agent credits. Raw task text, document content, project names, and tag
+names are not stored in operation receipts or capability telemetry. Operation
+outcomes and reversible effect receipts are retained for bounded recovery and
+Undo, then purged by the API retention job.
+
+See [Integrated AI actions](/architecture/integrated-ai-actions) for the
+shared lease, idempotency, privacy, receipt, and retention contract.
 
 ## Usage tips
 

@@ -1,28 +1,34 @@
 ---
-title: "Studios, members, and follow"
-description: "Tenancy, members, and public audience in product language."
+title: "Studios, members, follow, and subscribers"
+description: "Tenancy, team seats, free follow, and paid subscriber audience."
 ---
 
-A **Studio** is the social object: content, members, and followers. A
-person can own a Studio, or an **Organization** can own people and zero
-or more Studios. The former product name was **workspace** (`workspaceId`).
+A **Studio** is the social object: content, members, followers, and
+subscribers. A person can own a Studio, or an **Organization** can own
+people and zero or more Studios. The former product name was
+**workspace** (`workspaceId`).
 
 ## Studio
 
 Public actor with a unique **name**. The **handle** is that name as a
 slug (`Agata Full Demo` → `@agata_full_demo`) and stays in lockstep when
 the name changes. A taken or reserved name is rejected; Agata does not
-append `_2`. Studio apps live at
-`/studios/:handle/...`. Shared Nutrition and other public rows live at
-`/@handle` (RSC `/p/[handle]`; public API `/api/p/:handle`).
+append `_2`. Reserved slugs include `inbox`, `membership`, and
+`subscribe`. Studio apps live at `/orgs/:orgHandle/:handle/...`.
+Personal uses `personal` as the org segment. If the organization has no
+valid handle, the URL uses its id — the same fallback as a studio without
+a handle. Shared Nutrition
+and other public rows live at `/@handle` (RSC `/p/[handle]`; public API
+`/api/p/:handle`).
 
 Studios are **private** by default. A private studio’s `/@handle`
-catalog is **404** for anyone who is not a member (including followers
-and anonymous visitors). Members still see it. Set **Public** in studio
-settings to publish the catalog. Shared rows still honor their own
-visibility: a `public` or `followers` item stays reachable at
-`/@handle/{kind}/:id` even when the catalog is unpublished. Follow
-still requires a public studio.
+catalog is **404** for anyone who is not a member (including followers,
+subscribers, and anonymous visitors). Members still see it. Set
+**Public** in studio settings to publish the catalog. Shared rows still
+honor their own visibility: a `public`, `followers`, or `subscribers`
+item stays reachable at `/@handle/{kind}/:id` even when the catalog is
+unpublished — the viewer must still pass that row’s audience. Follow and
+Join still require a public studio.
 
 | Kind | Use |
 | --- | --- |
@@ -30,14 +36,19 @@ still requires a public studio.
 | **Organization** | Decorative when the Studio is org-owned (`organization_id` set). Not a parent org. |
 
 **Organization** is a separate table (`organizations` + `organization_members`).
-It is not a Studio and has no followers, handle, or public page. Billing
-stays on the Studio row. Existing `kind=organization` rows with a null
-`organization_id` stay Studios.
+It is not a Studio and has no followers, subscribers, or public page.
+The org **handle** is the name as a slug, same rules as a studio handle,
+and it is always in product URLs. Billing stays on the Studio row. Existing `kind=organization` rows
+with a null `organization_id` stay Studios.
 
 Org admins create Studios under the Organization. Other org people do
-not automatically become Studio members. Transfer ownership (Studio
-settings, owner only) moves a personal Studio to another member or into
-an Organization. Blocked while a subscription is active. Org-owned
+not automatically become Studio members. Add people from the org directory
+(**Manage organization → People**) at `/orgs/:orgHandle`, from studio
+**Invite members** / `/orgs/:orgHandle/:handle/team`, or from
+**Connections**. Transfer ownership (Studio settings, owner only) moves a
+personal Studio to another member or into an Organization. Blocked while
+an Agata SaaS subscription is active, and blocked while any fan
+subscription is `active`, `trialing`, `past_due`, or `unpaid`. Org-owned
 Studios cannot transfer in this version.
 
 **Team** belongs to an Organization. It is a permission shortcut, not a
@@ -46,16 +57,41 @@ org-owned Studio to upsert `profile_members` for those people. Unassign
 removes membership that exists only via that Team; a direct invite stays.
 One Studio can have several Teams; one Team can assign to several Studios.
 
+## Organization navigation
+
+Opening `/orgs` returns you to the last organization directory you visited,
+including Personal. This selection is stored in your account preferences and
+is checked against your current organization membership before redirecting.
+If no saved selection is available, the organization picker appears; accounts
+with only Personal go straight to `/orgs/personal`.
+
+Use **All organizations** in the sidebar switcher to open `/orgs?view=all`
+without the automatic redirect. The picker marks the last visited space and
+supports search, cards, and list views. Organization directories use
+`/orgs/:orgHandle`, falling back to the organization id when needed.
+
+The directory separates **Studios** and **Trash**, with search and a removable
+Team filter. Selecting a Team shows only its assigned Studios. Organization
+owners and admins create Studios and open **Manage organization** for People,
+Teams, and Settings. Members see guidance to request access when their list is
+empty.
+
+Organizations, Explore, Following, Connections, and Inbox share the product
+sidebar's compact geometry, collapse controls, and saved open state. Studios
+remains available when visiting another platform page. The desktop sidebar
+also supports `Cmd+B` / `Ctrl+B`; narrow layouts use the navigation drawer.
+
 ## Members
 
 People invited by email who can **run** the studio. Invite from the
-studio switcher (**Invite members**) or `/studios/:handle/team`. That
+studio switcher (**Invite members**) or `/orgs/:orgHandle/:handle/team`. That
 route is the invite screen, not a Team product. Studio settings (name,
-visibility, members, usage) live at `/studios/:handle/settings`, also
+visibility, members, usage) live at `/orgs/:orgHandle/:handle/settings`, also
 from the switcher. The `/studios` list does not open settings.
 
 Non-owners can **leave** from Studio settings. The last owner cannot
-leave (delete the studio instead). Leave does not unfollow.
+leave (delete the studio instead). Leave does not unfollow and does not
+cancel a paid membership to the same studio.
 
 | Role | Can (indicative) |
 | --- | --- |
@@ -65,23 +101,48 @@ leave (delete the studio instead). Leave does not unfollow.
 
 Section access (`section_access`) is unchanged. The owner can always delete.
 
-Invitations still reserve a **seat**. Followers do not.
+Invitations still reserve a **seat**. Followers and subscribers do not.
 
 ## Follow
 
-One-way, free, no accept. A follower can see shareable rows set to `followers` or `public`.
-Follow does not create a `profile_members` row and does not count
-toward `seat_count`.
+One-way, free, no accept. A follower can see shareable rows set to
+`followers` or `public`. Follow does not create a `profile_members` row
+and does not count toward `seat_count`.
 
 **Follow ≠ member.** Share a recipe or a library list without adding
 someone as a member.
 
+Unfollow does not cancel a paid membership.
+
+## Subscribers
+
+Paid audience. A subscriber is never a `profile_members` row and never
+a seat. Product: [Memberships](/platform/memberships).
+
+Access ladder: **team > subscriber > follower > public**. A subscriber
+sees `subscribers` + `followers` + `public` without needing a follow
+row. Subscribing **upserts a follow**. The owner cannot subscribe to
+their own studio.
+
+On `/@handle`, Join appears when the public studio returns active
+plans. A signed-in subscriber sees Manage (buyer portal) and, when the
+plan includes `owner_chat`, Message. A miss on a `subscribers` URL is
+**404** (no existence leak). The catalog may hint that subscriber-only
+items stay hidden; it does not list those titles.
+
+Followed and entitled subscribed studios are listed at `/following`
+(`GET /users/me/following`). The list includes active fan subscriptions even
+when the studio is private or the follow row is missing; canceled subscriptions
+drop off.
+
 ## Shareable rows
 
-One audience enum on the row: `members` (default) \| `followers` \|
-`public`. Member access for a miss is **section-scoped** (nutrition,
-library, or goals). Policy lives in `internal/share`. Public URLs are
-`/@handle/{kind}/:id`. Miss is **404**.
+One audience enum on the row: `members` (default) \| `subscribers` \|
+`followers` \| `public`. Member access for a miss is **section-scoped**
+(nutrition, library, or goals). Policy lives in `internal/share` and
+`shared/constants/share-visibility.ts`. Public URLs are
+`/@handle/{kind}/:id`. Miss is **404**. Copy-link is available when
+visibility is `public`, `followers`, or `subscribers`.
 
 | Kind | Path |
 | --- | --- |
@@ -91,24 +152,47 @@ library, or goals). Policy lives in `internal/share`. Public URLs are
 | Library collection | `/@handle/collections/:id` |
 | Goal | `/@handle/goals/:id` |
 | Daily meals | `/@handle/meals/:dateKey` |
+| Published note (`blog`, `research`, `report`) | `/@handle/notes/:id` |
+| Exercise routine | `/@handle/routines/:id` |
+| Vision board | `/@handle/boards/:id` |
+| Habit | `/@handle/activities/:id` |
 
-Finance, health metrics, Eve, inventory, shopping, tasks, and notes
-stay members-only. A public parent never elevates a `members` child.
+Finance, health metrics and sessions, Eve, inventory, shopping, tasks,
+and unpublished notes stay members-only. A public parent never elevates
+a `members` child. Public notes require type `blog` / `research` /
+`report` and status `published`. Public activities are habits only (no
+logs, streaks, or assignees). Public routines omit sessions and
+attachments. Public vision boards list only goals the viewer may see.
+
+## Organization lifecycle
+
+An **Organization** has its own handle (name slug, same rules as a studio)
+for `/orgs/:orgHandle` URLs. Owners rename or change the handle in org
+settings. Org invitations (`admin` or `member`) accept or reject from the
+invitee inbox; cancel from org people. **Leave** removes org membership;
+**transfer ownership** moves the sole owner role. **Soft-delete** requires
+zero org-owned studios and no pending org invitations; **restore** and
+**permanent delete** follow the same trash pattern as studios (handle stays
+reserved until permanent delete).
 
 ## Trash and multiple studios
 
 Deleting a studio still moves it to trash for 30 days. `/@handle` is 404
 while `deleted_at` is set. Follow rows stay so restore is lossless.
 Permanent delete drops `profile_follows` for that studio. You can belong
-to several. The picker is in the shell and at `/studios` (**Personal**,
-Organizations with nested Teams, and **Trash**). `?section=trash`
-opens Trash; `?org=` and `?team=` scope the list.
+to several. Pick an **Organization** at `/orgs` (or skip straight
+to your only scope after sign-in). Each org’s studio list lives at
+`/orgs/:orgHandle` (`personal` for person-owned studios; the
+id if the name cannot slug). Outside a
+Studio, the platform sidebar switcher changes scope or opens
+`/orgs`. **Studios** appears after a scope is selected and opens
+that org’s list. Inside a Studio the sidebar picker lists only that
+org’s studios.
+Trash and team filters use `?section=trash` and `?team=` on that route.
+Legacy `/studios` redirects into the matching org directory.
 
 Finding someone else's published handle lives on
 [Explore](/platform/explore). Type `@handle` or a name that slugs to one.
 It uses the same `GET /api/p/:handle` path as `/@handle`. There is no
 public directory. Private studios stay 404. `/studios?section=public`
-and `/profiles?section=public` redirect there.
-
-Legacy 308: `/workspaces` → `/studios`, `/workspaces/:id/*` → `/studios/:id/*`,
-`/profiles` → `/studios`, `/profiles/:id/*` → `/studios/:id/*`.
+redirects there.
