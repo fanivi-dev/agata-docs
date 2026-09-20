@@ -1,0 +1,78 @@
+---
+title: "Messages"
+description: "Owner-chat inbox with subscribers. Not Eve and not the Tasks inbox."
+---
+
+**Messages** is 1:1 owner chat with a paying subscriber. It is a new
+domain, not Eve and not the Tasks inbox.
+
+Membership perk: [Memberships](/platform/memberships).
+
+## Route
+
+```txt
+/inbox
+/inbox/:threadId
+```
+
+Authenticated only (`proxy` protected prefix). Outside a Studio, the platform
+sidebar shows **Inbox** with an unread badge. The Studio user menu keeps an
+Inbox shortcut. Unread is `profile_message_reads` only. The list polls about
+every 10 seconds.
+
+This is not `/orgs/:orgHandle/:handle/tasks` (the Work inbox).
+
+## Who can talk
+
+One thread per `(studio, subscriber)`. The owner is
+`profiles.owner_id` only — not every admin.
+
+Opening (`POST /api/p/:handle/messages/thread`) or sending
+(`POST /api/p/:handle/messages`) from a public studio requires:
+
+- an active entitlement (`active`, `trialing`, or `past_due`);
+- perk `owner_chat` on the plan;
+- the pair is not blocked;
+- the caller is not the studio owner.
+
+Public **Message** is shown only when `viewerCanMessage` is true.
+
+## Thread rules
+
+| Rule | Detail |
+| --- | --- |
+| Body | Plain text, 1–4000 characters. No attachments. |
+| Rate | 30 messages per hour per thread (`429`). |
+| Inactive subscriber | Read-only for the subscriber. The owner may reply **once** if the last message is from the subscriber. |
+| Block | Owner or subscriber can block the pair. Further sends fail. |
+| Email | `owner_message` / `subscriber_message` via Resend (`EMAIL_FROM`). |
+
+## API
+
+| Method | Path | Use |
+| --- | --- |
+| `GET` | `/messages/threads` | Threads where the user is owner or subscriber |
+| `GET` | `/messages/threads/:id` | Thread + messages (`limit`, `before`) |
+| `POST` | `/messages/threads/:id/messages` | Send |
+| `POST` | `/messages/threads/:id/read` | Mark read (`204`) |
+| `POST` | `/messages/threads/:id/block` | Block (`204`) |
+| `POST` | `/p/:handle/messages/thread` | Get-or-create the entitled owner-chat thread without sending |
+| `POST` | `/p/:handle/messages` | Get-or-create thread and send |
+
+Full schemas: OpenAPI reference (Messages tag).
+
+## AI inbox labels
+
+Account-scoped **Organize inbox with AI** and per-thread **Classify conversation with AI** store viewer-private intent/signal findings on message threads. Personal routing filters apply on top of **All**; they never hide threads from All, change unread counts, or send messages. Routes: `GET /api/messages/ai/classify-context`, `POST /api/messages/ai/classify`, undo and dismiss under `/api/messages/ai/*`.
+
+## Stack
+
+- UI: `features/messages/`
+- BFF: `services/messages/`
+- API: `apps/api/internal/messaging/`
+
+## It is not
+
+- Eve chats, tools, or credits.
+- The Tasks inbox.
+- Community chat, multi-owner inboxes, or attachments.

@@ -1,0 +1,89 @@
+---
+title: "Integrated AI actions"
+description: "Execution, automatic writes, undo receipts, retention, and privacy for in-product AI actions."
+---
+
+Agata's integrated AI actions are small product controls, not a separate chat
+surface. A user explicitly starts an action, Jev evaluates bounded product
+state through AI Gateway, and Agata applies a sufficiently confident result
+without a second confirmation step. The normal product controls remain the
+source of truth, so the user can edit or remove the result afterward.
+
+The first actions cover task tags, task project and priority, transaction
+categorization, and library organization. Their product-specific behavior is
+documented in [Tasks](/workspace/tasks), [Finance](/apps/finance), and
+[Library](/apps/library). These initial capabilities are unmetered and do not
+consume Agent credits.
+
+## Operation lifecycle
+
+Every run has a client-generated `operationId`, an immutable request digest,
+and a capability version. The API grants a 30-second lease with a fencing
+token. A domain write must validate that lease in the same database
+transaction that applies the change and records its effect receipt.
+
+The operation endpoint is idempotent:
+
+- the same identifier and request can resume a running lease or replay its
+  terminal result;
+- the same identifier with different immutable inputs is rejected;
+- only two operations per actor may run concurrently, and an actor may start
+  at most 30 operations per minute;
+- a running operation for the same actor, capability, version, and target
+  prevents another write from racing it.
+
+Terminal states are `applied`, `partial`, `unchanged`, `stale`, `ineligible`,
+`busy`, and `error`. Outcome JSON is limited to 32 KiB. Capability input is
+also bounded before provider evaluation; the shared catalog currently allows
+at most 48 KiB and 100 evaluation questions, with lower limits where a domain
+requires them.
+
+## Automatic writes and abstention
+
+These capabilities use direct apply for low-risk changes. They add or fill
+supported values and preserve user-authored data whenever the domain allows
+it. Exclusive choices require both a confidence threshold and a minimum lead
+over the next candidate. Additive choices use a threshold and a result cap.
+Weak, ambiguous, stale, or ineligible results abstain instead of forcing a
+write.
+
+The write endpoint always rechecks authorization, operation capability,
+target ownership, eligibility, source revision, candidate scope, and current
+limits. Model output alone never authorizes a mutation.
+
+## Effect receipts and Undo
+
+An effect receipt records only what is required to reverse the write: domain
+and effect type, target identifier, before/after values or a created relation
+identifier, source fingerprint, and post-write revision. Receipts are created
+atomically with the product write.
+
+Undo is domain-specific. It reads the operation's remaining receipts and
+reverts an effect only when the current value or relation still matches the
+recorded post-write state. Later manual edits are skipped rather than erased.
+Undo is available for 24 hours after an operation with applied effects.
+
+## Privacy and retention
+
+Provider input is assembled for the requested action and is not persisted as
+raw prompt or raw output by the capability runtime. Operational telemetry
+contains counts, latency, token usage, truncation flags, outcome codes, and
+hashed actor, Studio, and entity identifiers. It does not include product
+content, candidate identifiers, candidate names, or selected values.
+
+Terminal operations and their cascading effect receipts are retained for
+seven days for replay and recovery, then removed by the authenticated internal
+purge job. The `ai_findings` table is product state with an independent
+lifecycle; the receipt purge does not delete findings.
+
+## API sequence
+
+1. `POST /api/ai-capabilities/profiles/:studioId/operations` claims the lease.
+2. The server evaluates bounded domain context.
+3. A task, Finance, or Library write endpoint validates the lease and records
+   every applied effect in the same transaction as its product write.
+4. `POST /api/ai-capabilities/profiles/:studioId/operations/:operationId/finalize`
+   records the terminal outcome and Undo deadline.
+5. The domain's Undo endpoint conditionally reverses still-current effects.
+
+The canonical request and response schemas are in [OpenAPI and playground](/api/openapi).

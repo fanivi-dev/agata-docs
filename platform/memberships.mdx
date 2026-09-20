@@ -1,0 +1,173 @@
+---
+title: "Memberships"
+description: "Paid studio audience: plans, Stripe Connect, Join, and the 10% plus processing take."
+---
+
+**Memberships** are a paid audience on a public Studio. A subscriber is
+not a team member and does not occupy a seat. Agata SaaS billing
+(Free / Pro / Business) stays a separate Stripe stack.
+
+Share and follow: [Studios, members, follow, and subscribers](/concepts/organizations-studios).
+Owner chat: [Messages](/platform/messages).
+
+## What it is for
+
+1. The owner (or admin) connects payouts and publishes 1–3 plans.
+2. A visitor on `/@handle` picks a plan and pays with Checkout.
+3. An entitled subscriber sees `subscribers` + `followers` + `public`
+   rows. Subscribe upserts a follow.
+4. Optional perk `owner_chat` opens 1:1 owner DMs in `/inbox`.
+
+## Selling requirements
+
+Selling needs **all** of:
+
+| Gate | Detail |
+| --- | --- |
+| Studio public | `profiles.visibility = public` |
+| Agata plan | Owner studio on **Pro** or **Business** (`isPaidProfilePlan`) |
+| Connect payouts | Connected account `payouts_enabled` |
+| Legal (production) | `LEGAL_OPERATOR_NAME`, `LEGAL_OPERATOR_TAX_ID`, and `LEGAL_OPERATOR_ADDRESS` must be set before live charges |
+| Stripe configuration (production) | Live API key and distinct platform / connected-account webhook signing secrets |
+
+The owner membership screen warns when public, Pro/Business, or legal
+identity is missing. Connect onboarding and plan save reject a Free
+studio. Checkout rejects the studio owner, a plan that is not priced,
+and a destination without payouts or an active transfers capability. The
+destination must belong to the same Studio as the membership Price.
+
+## Plans
+
+Owner or admin CRUD at `/orgs/:orgHandle/:handle/membership`. At most **3
+active** plans. Currency is **EUR** only. Interval is `month` or
+`year`. Every plan includes perk `catalog`. Optional perk: `owner_chat`.
+
+| Field | Contract |
+| --- | --- |
+| Name / description | 80 / 2000 characters |
+| Amount | Positive integer cents |
+| Perks | `catalog` required; `owner_chat` optional |
+| Stripe | Next creates Product + Price after save. Amount and interval are immutable once `stripePriceId` is set. A live Price is never edited; a new Price replaces it. |
+| Archive | Delete when no subscribers remain; archive (`is_active=false`) when they do. Existing Stripe Prices keep billing until the buyer cancels. |
+
+Public `GET /api/p/:handle` returns active plans as `membershipPlans`,
+plus `subscriberCount`, `isSubscribed`, and `viewerCanMessage`.
+
+## Stripe Connect
+
+Agata is merchant of record. Connected accounts use the Accounts API with
+explicit controller properties: Express dashboard, application pays Stripe
+fees and absorbs losses. Destination charges: Customer and
+Price live on the **platform**; `transfer_data.destination` is the
+owner connected account.
+
+Embedded onboarding, account management, notification banner, and
+payouts live on the owner membership screen. Status is projected to
+`profile_connect_accounts` (`charges_enabled`, `payouts_enabled`,
+`details_submitted`, `disabled_reason`).
+
+If Connect is disabled or `payouts_enabled` is false, Join checkout
+fails. Existing subscriptions continue until Stripe fails them.
+
+## Fees
+
+Owner copy: **Agata 10% + payment processing.**
+
+The platform take is 10% net. Stripe processing is baked into
+`application_fee_percent` (Checkout) and `application_fee_amount` on
+`invoice.created` so destination-charge Stripe fees (paid by Agata) do
+not erase the margin. Conservative estimate: `2.9% + €0.25`.
+
+```txt
+platform_cents = floor(amount * 0.10)
+stripe_cents   = floor(amount * 0.029) + 25
+application_fee_amount = min(amount - 1, platform_cents + stripe_cents)
+```
+
+## Join and buyer billing
+
+| Step | Who |
+| --- | --- |
+| Reserve checkout intent (`POST …/membership/checkout`, idempotency key + relative return path) | Go |
+| Plan picker → Checkout `mode=subscription` | Next |
+| Buyer Customer | New `user_billing_customers` row. Not the owner’s Better Auth `stripeCustomerId`. |
+| Success | `/@handle?subscribed=1` |
+| Manage | Buyer Customer Portal (payment method + cancel). Return path `/following` or the public studio. |
+| Cancel flag | Next cancels in Stripe; `PATCH /users/me/subscriptions/:id` persists `cancelAtPeriodEnd`. |
+| Refund | Owner from the subscriber row. Platform Refund with `reverse_transfer` + `refund_application_fee`. |
+
+Automatic tax is on when legal operator identity is complete.
+
+Checkout reservations recheck the public Studio, paid plan, active priced
+membership plan, and linked payouts inside one transaction. Retry keys are
+scoped to buyer, Studio, and plan; expired or completed reservations do not
+prevent a later subscription. Stripe session creation uses the reservation
+ID as its idempotency key, so concurrent retries cannot create two sessions.
+Checkout and cancellation state updates do not use permanent HTTP response
+replay. A missing Stripe subscription fails cancellation before changing the
+local flag.
+
+Fan list: `GET /users/me/subscriptions`. Followed + subscribed studios:
+`/following`.
+
+The following page reads followed studios and entitled subscriptions via
+`GET /users/me/following`; it is not limited to the Explore recommendation
+catalog. Subscription badges reflect current entitlement, not canceled history.
+
+## Distinct from SaaS billing
+
+| Stack | Stripe | Writes |
+| --- | --- | --- |
+| **Agata plan** | Better Auth plugin, `referenceId=studioId`, `/api/auth/stripe/webhook` | `profiles.profile_plan` and related billing columns |
+| **Memberships** | Connect Checkout + `/api/stripe/connect/webhook` (two signing secrets, one per event origin) | `profile_subscriptions`. Does **not** write `profiles.profile_plan`. |
+
+Same `STRIPE_SECRET_KEY`. Membership subscription, checkout, invoice, and
+refund events come from the platform account and use
+`STRIPE_CONNECT_WEBHOOK_SECRET`. Connected `account.updated` events use
+`STRIPE_CONNECT_ACCOUNTS_WEBHOOK_SECRET`. Both Stripe destinations share the
+membership URL. Non-membership invoices never receive membership fees.
+Do not send connected-account events to the SaaS webhook. Enable Connect in
+the Stripe Dashboard (ops, not code). Event lists and deployment order:
+[Configuration](/config/app).
+
+Internal projection: `POST /api/internal/membership/stripe/sync`
+(`CRON_SECRET`).
+
+## Lifecycle
+
+- Soft-delete and ownership transfer are blocked while any
+  `profile_subscriptions.status` is `active`, `trialing`, `past_due`,
+  or `unpaid` (same gate as a blocking SaaS subscription).
+- Unfollow does not cancel a subscription.
+- Leaving the team does not affect a subscription to the same studio.
+- Emails: `membership_subscribed` when a subscription becomes active,
+  `membership_cancel_scheduled` when `cancel_at_period_end` is set, and
+  `membership_canceled` when Stripe ends the subscription (Resend,
+  `EMAIL_FROM`).
+
+## Routes
+
+| Route | Use |
+| --- | --- |
+| `/orgs/:orgHandle/:handle/membership` | Owner: Connect, plans, subscribers, refund |
+| `/@handle` | Join / Manage / Message |
+| `/following` | Followed and subscribed studios |
+| `/inbox` | Owner chat (perk required); Message opens `/inbox/:threadId` |
+
+Settings and billing link this surface as **Audience**. It is not a
+studio mini-app and has no Eve section.
+
+## Stack
+
+- UI: `features/membership/`
+- BFF: `services/membership/`
+- API: `apps/api/internal/membership/` (`/profiles/:studioId/membership…`,
+  `/users/me/subscriptions`)
+- Webhook: `apps/app/app/api/stripe/connect/webhook/route.ts`
+
+## It is not
+
+- A team seat, Organization billing, or a `profile_members` row.
+- A substitute for [Connections](/platform/connections) or Follow.
+- Fan access to `/orgs/:orgHandle/:handle` apps.
+- Eve, a social feed, likes, comments, or non-EUR prices.
