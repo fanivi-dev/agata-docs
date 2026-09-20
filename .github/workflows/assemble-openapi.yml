@@ -1,0 +1,34 @@
+name: Assemble OpenAPI
+on:
+  push:
+    paths:
+      - 'openapi/parts/**'
+      - '.github/workflows/assemble-openapi.yml'
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  assemble:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Concatenate parts
+        run: |
+          set -euo pipefail
+          mkdir -p openapi
+          cat openapi/parts/part_* > openapi/agata-v1.yaml
+          wc -c openapi/agata-v1.yaml
+          rm -f openapi/.publish-marker
+      - name: Commit assembled spec
+        run: |
+          set -euo pipefail
+          git config user.name "agata-docs-bot"
+          git config user.email "docs@agata.in"
+          git add openapi/agata-v1.yaml
+          git add -u openapi/.publish-marker || true
+          if git diff --cached --quiet; then
+            echo "No changes"
+            exit 0
+          fi
+          git commit -m "Publish openapi/agata-v1.yaml for Docs7"
+          git push
