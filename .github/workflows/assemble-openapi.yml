@@ -12,20 +12,23 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Concatenate parts
+      - name: Fetch OpenAPI YAML
         run: |
           set -euo pipefail
           mkdir -p openapi
-          cat openapi/parts/part_* > openapi/agata-v1.yaml
+          curl -fsSL \
+            "https://gist.githubusercontent.com/fabiannieves-idrica/2095e4ec29452e988189a4e5f0d24bc0/raw/agata-v1.yaml" \
+            -o openapi/agata-v1.yaml
           wc -c openapi/agata-v1.yaml
-          rm -f openapi/.publish-marker
+          head -5 openapi/agata-v1.yaml
+          rm -f openapi/.publish-marker openapi/parts/_path_test.txt
+          rm -rf openapi/parts || true
       - name: Commit assembled spec
         run: |
           set -euo pipefail
           git config user.name "agata-docs-bot"
           git config user.email "docs@agata.in"
-          git add openapi/agata-v1.yaml
-          git add -u openapi/.publish-marker || true
+          git add -A openapi
           if git diff --cached --quiet; then
             echo "No changes"
             exit 0
