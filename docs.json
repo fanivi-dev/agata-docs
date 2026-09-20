@@ -20,6 +20,7 @@
               "index",
               "getting-started/overview",
               "getting-started/first-studio",
+              "getting-started/local-development",
               "getting-started/navigation",
               "getting-started/faq"
             ]
@@ -76,6 +77,8 @@
               "platform/billing-plans",
               "platform/legal-readiness",
               "platform/connections",
+              "platform/memberships",
+              "platform/messages",
               "platform/explore",
               "platform/audit-logs",
               "platform/feedback"
@@ -85,6 +88,7 @@
             "group": "Meta",
             "pages": [
               "architecture/feature-lifecycle",
+              "architecture/integrated-ai-actions",
               "architecture/ai-tools",
               "architecture/contributing-docs"
             ]
@@ -269,8 +273,7 @@
               "database/agent",
               "database/library",
               "database/health",
-              "database/nutrition",
-              "database/places"
+              "database/nutrition"
             ]
           },
           {

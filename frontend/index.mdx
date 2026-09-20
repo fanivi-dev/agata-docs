@@ -1,25 +1,31 @@
 ---
 title: "Frontend (draft)"
-description: "Architecture of apps/app aligned with the code; this tab is still marked as draft."
+description: "Draft placeholder. Prefer AGENTS.md, General, Design system, and API for current contracts."
 ---
 
 <Warning>
-  This tab is a **draft**: the architecture of `apps/app` may still
-  evolve. The boundaries and data/server pages describe the current
-  model (features `public/`, services in `apps/app/services`, checker in CI) —
-  not aspirational claims.
+  This tab is a **draft**. Do not invest in deep Frontend architecture pages
+  yet. Trust [AGENTS.md](https://github.com/fanivi/agata/blob/main/AGENTS.md)
+  in the monorepo, plus the stable General, Design system, and API tabs.
 </Warning>
+
+## Current public URL model
+
+| Layer | Shape |
+| --- | --- |
+| Browser (product) | `/orgs/:orgHandle/:handle/...` |
+| Internal App Router tree | `app/(authenticated)/studios/[studioId]/...` |
+| Go / OpenAPI HTTP | `/api/.../profiles/{studioId}/...` |
+
+Earlier drafts that taught `/profiles/[studioId]/...` as the public app URL, or
+bare `/studios` / `/today` as top-level protected prefixes, are withdrawn.
+Legacy `/studios` still 308-rewrites into the org directory for bookmarks.
 
 For stable product and UI work:
 
 - **[General](/getting-started/overview)** — what the product does
+- **[Local development](/getting-started/local-development)** — clone → migrate → API → app
 - **[Design system](/design-system)** — components and tokens
 - **[API](/api)** — contract with Go
 
-In this tab:
-
-- [App structure](/frontend/app-structure)
-- [Features and boundaries](/frontend/features-and-boundaries)
-- [Data and server](/frontend/data-and-server)
-
-Verification: `bun run lint:architecture` (Go + feature boundaries) and `bun run type-check`.
+Verification: `bun run lint:architecture` and `bun --filter app type-check`.

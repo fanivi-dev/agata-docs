@@ -1,0 +1,46 @@
+---
+title: "Local development"
+description: "Clone, install, migrate, and run the Go API plus Next.js app for Agata."
+---
+
+Canonical setup lives in the monorepo [README](https://github.com/fanivi/agata/blob/main/README.md)
+and contributor policy in [AGENTS.md](https://github.com/fanivi/agata/blob/main/AGENTS.md).
+This page points at those sources so docs do not fork a second command list.
+
+## Requirements
+
+- **Node.js 24.x** (pinned in root `package.json`) for the Next.js / Eve app
+- **Bun** as the package manager only (`bun install`, `bun run`, workspace filters)
+- Go version from `apps/api/go.mod`
+- A reachable PostgreSQL database
+
+Do not run Next or Eve on Bun as the JavaScript runtime.
+
+## Bootstrap
+
+Run from the repository root unless a step says otherwise.
+
+1. `bun install`
+2. Create gitignored `apps/app/.env.local` and `apps/api/.env.local` using the
+   variable names in [Configuration](/config). There is no `.env.example`.
+3. For local Go development, set `GO_API_URL=http://localhost:8080` on the app.
+4. Apply development migrations: `bun run api:migrate-up`
+5. Optional demo data: `bun run api:seed`  
+   Seed login: `seed@agata.local` / `SeedDemo123!` (omit `--reset` to keep data)
+6. Start `bun run api:dev` and `bun run dev` in separate terminals  
+   API **8080**, app **3000**. Reuse an API already bound to 8080.
+
+Docs site (optional): see [Contributing to the docs](/architecture/contributing-docs).
+
+## Related quickstarts
+
+| Audience | Page |
+| --- | --- |
+| HTTP / curl | [API quickstart](/api/quickstart) |
+| Eve agent | [Eve quickstart](/eve/quickstart) |
+| Env names / Vercel | [Configuration](/config) |
+
+## Static checks (agents and contributors)
+
+Scoped static checks are the default. See README / AGENTS.md for the table.
+Do not start browsers, Storybook, builds, or E2E unless explicitly asked.

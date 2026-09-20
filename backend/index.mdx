@@ -1,13 +1,19 @@
 ---
 title: "Backend (draft)"
-description: "Placeholder: backend architecture will change soon."
+description: "Draft placeholder. Prefer the API and Database tabs for current contracts."
 ---
 
 <Warning>
-  This tab is a **draft**. The organization of `apps/api` may evolve soon. Use as a stable reference:
+  This tab is a **draft**. The organization of `apps/api` may evolve. Do not
+  invest in deep Backend architecture pages yet.
 </Warning>
 
-- **[API](/api)** — HTTP auth, guides, OpenAPI  
-- **[Database](/database)** — schema and columns  
+Use as a stable reference:
 
-The rest of the pages in this tab may become obsolete without notice in docs.
+- **[API](/api)** — HTTP auth, guides, OpenAPI
+- **[Database](/database)** — schema and columns
+- **[Local development](/getting-started/local-development)** — migrate and run the Go API
+
+HTTP paths use `/api/.../profiles/{studioId}/...`. Product browser URLs use
+`/orgs/:orgHandle/:handle/...`. See [AGENTS.md](https://github.com/fanivi/agata/blob/main/AGENTS.md)
+in the monorepo for the dual path story.
