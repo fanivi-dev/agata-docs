@@ -3,7 +3,7 @@ title: "Architecture"
 description: "Eve runtime, HTTP channel, domain layer, and chat persistence."
 ---
 
-Eve runs on the **`eve`** runtime (v0.47.6), which discovers the agent by walking the filesystem under `apps/app/agent/`.
+Eve runs on the **`eve`** runtime (v0.62.0), which discovers the agent by walking the filesystem under `apps/app/agent/`.
 
 ## Map
 
@@ -48,7 +48,7 @@ Adding a new domain is those four files plus canonical metadata in `lib/capabili
 
 ## Capability exposure
 
-The catalog contains 173 product tools, including 22 bounded bulk tools. Tool callbacks stay literal in `agent/tools/*.ts`; the catalog owns names, groups, sections, read/write mode, risk, intent keywords, anchors, bulk classification, and linked skills.
+The catalog contains 176 product tools, including 22 bounded bulk tools. Tool callbacks stay literal in `agent/tools/*.ts`; the catalog owns names, groups, sections, read/write mode, risk, intent keywords, anchors, bulk classification, and linked skills.
 
 `EVE_TOOL_ROUTING_MODE` controls exposure:
 
@@ -121,6 +121,13 @@ The session cuts off after 2 minutes of inactivity or 5 minutes total. The STT d
 
 A `session.failed` event is a recoverable chat state: history stays, the stored Eve session is cleared, and the next send creates a new durable session. The client disconnects the stream on that terminal event so the request does not sit until the platform timeout.
 
+Eve 0.62 keeps the public session ID and event stream stable while importing a
+pre-0.57 session on its next turn. During rollout, keep the old deployment
+available until active sessions have imported or expired. Once a session has
+resumed on 0.62, do not send it back across the 0.57 execution-model boundary;
+clear its stored runtime session and start a new one while retaining Agata's
+persisted chat history.
+
 The model is selected dynamically at `step.started` (`AGENT_MODEL_ID` remains the voice/reservation reference). See [Models](/eve/runtime/models).
 
 Stream parts are rendered as text (Streamdown) and `dynamic-tool` results. A pure presentation policy maps every canonical tool to a semantic kind and a turn role; the client then renders singular cards, bounded rows, grouped search/agenda/Week-plan results, summaries, partial outcomes, navigation, or downloads. Supporting results are suppressed when a later terminal result supersedes them, while text-only policies produce no success component. This presentation layer is independent from capability routing.
@@ -129,7 +136,7 @@ The UI rebuilds results from the persisted tool input/output and normalized rece
 
 Chat, history, and credit loads distinguish ready, missing/unauthorized, and transient error states. A transient failure keeps the last usable value and offers a localized retry instead of showing an empty or deleted state. Composer submission is accepted/failed explicitly: text, attachments, and local Blob previews remain owned by the draft until acceptance or explicit removal.
 
-Tool-produced navigation is fail-closed. The client accepts only paths inside the current `/profiles/:handle` prefix, rejecting external, protocol-relative, escaped, traversal, or cross-profile values. History search owns `aria-activedescendant` on the focused input, announces the highlighted item, loads keyboard/click previews immediately, debounces pointer previews, ignores stale responses, and keeps a bounded cache.
+Tool-produced navigation is fail-closed. The client accepts only paths inside the current `/orgs/:orgHandle/:handle` studio prefix (plus legacy `/studios` roots), rejecting external, protocol-relative, escaped, traversal, or cross-profile values. History search owns `aria-activedescendant` on the focused input, announces the highlighted item, loads keyboard/click previews immediately, debounces pointer previews, ignores stale responses, and keeps a bounded cache.
 
 Each turn can carry `clientContext` (timezone + `screen`) via `prepareSend`; it is ephemeral and is not stored as memory.
 
