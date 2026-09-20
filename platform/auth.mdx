@@ -12,6 +12,8 @@ description: "Sign-in, sign-up, and session in Agata."
 | `/forgot-password` | Request a reset link |
 | `/reset-password` | Choose a new password (`?token=` or `?error=INVALID_TOKEN`) |
 
+Signed-in visitors who open `/sign-in`, `/sign-up`, or `/forgot-password` go to `/orgs` (last org directory or the org picker). Legacy `/studios` still 308-rewrites into that org flow for bookmarks. Other public pages (landing, docs, legal, `/ai-tools`, `/@handle`) stay visible. `/reset-password` and verify-email links stay on those routes so the token can complete.
+
 The session keeps access to studios and preferences.
 
 ## What happens after login

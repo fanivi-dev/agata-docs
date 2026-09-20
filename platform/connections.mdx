@@ -10,7 +10,7 @@ description: "People graph: email invitations and a network for inviting to stud
 1. You invite someone by the email they use with Agata.
 2. That person accepts (or declines) the request.
 3. They appear on your connections list.
-4. When inviting to a **studio**, you can pick people from that list in one click.
+4. When inviting to a **studio** or adding people to an **Organization**, you can pick people from that list in one click.
 
 ## Route
 
@@ -27,6 +27,11 @@ description: "People graph: email invitations and a network for inviting to stud
 | Outgoing | Cancel while pending |
 | List | Search by name/email; remove a connection |
 | Studio | “From your connections” picker when inviting members (studio selector or **Settings → Members / Invitations**) |
+| Organization | Same picker when adding people from `/orgs/:orgHandle` (**Manage organization → People**). They do not automatically join Studios |
+
+Empty search results offer **Clear search**. With no connections, the empty
+state takes you to the invitation field. Incoming and outgoing invitations
+use labelled keyboard-accessible tabs.
 
 ## Stack
 
@@ -37,8 +42,9 @@ description: "People graph: email invitations and a network for inviting to stud
 ## It is not
 
 - External providers, third-party OAuth, or data sync from other apps.
-- A substitute for studio members or **Follow**. Collaboration lives on the
-  studio team; Follow is the public audience. Connections only speeds inviting
-  people you already know.
+- A substitute for studio members, **Follow**, or
+  [Memberships](/platform/memberships). Collaboration lives on the studio
+  team; Follow is the free audience; a subscriber is the paid audience.
+  Connections only speeds inviting people you already know.
 - [Explore](/platform/explore), which ranks public studios from those
   connections and from public teams you belong to.

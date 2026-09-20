@@ -12,7 +12,7 @@ It is not a generic chat: everything Eve can do is a tool written in `apps/app/a
     Run Eve locally and try a conversation.
   </Card>
   <Card title="Tools" icon="wrench" href="/eve/tools/overview">
-    The canonical 173-tool catalog and progressive capability groups.
+    The canonical 176-tool catalog and progressive capability groups.
   </Card>
   <Card title="Utility" icon="shield-check" href="/eve/runtime/utility">
     Privacy, receipts, memory, and screen context.
@@ -26,7 +26,7 @@ It is not a generic chat: everything Eve can do is a tool written in `apps/app/a
 
 - **Sidebar** of the shell: **Agent** item (always-on).
 - **Header** of the profile chrome: **Agent** button, opens a side panel with a simple chat.
-- **Dedicated page** `/profiles/:id/agent` (and `/agent/:chatId`): conversation rail (back to the shell, **New chat**, **History**, recent chats). **History** opens a search + preview overlay.
+- **Dedicated page** `/orgs/:orgHandle/:handle/agent` (and `/agent/:conversationId` under the same studio prefix): conversation rail (back to the shell, **New chat**, **History**, recent chats). **History** opens a search + preview overlay.
 - **Memory** is personal and opt-in (Memory dialog in the Agent rail).
 - Empty state: prompts derived from the screen / sections, with a global fallback.
 
@@ -34,7 +34,7 @@ It is not a generic chat: everything Eve can do is a tool written in `apps/app/a
 
 ## What it can do
 
-Eve covers the profile command layer across all product sections. The catalog contains 173 tools; what a user can access depends on the **sections** granted in that profile, and progressive routing keeps only the relevant groups visible to the model:
+Eve covers the profile command layer across all product sections. The catalog contains 176 tools; what a user can access depends on the **sections** granted in that profile, and progressive routing keeps only the relevant groups visible to the model:
 
 | Section | Domains | Tools |
 | --- | --- | ---: |
@@ -47,7 +47,7 @@ Eve covers the profile command layer across all product sections. The catalog co
 | `nutrition` | journal, recipes, plans, pantry, shopping, dispatch and bounded bulk | 24 |
 | `library` | items, collections, subitems, dispatch and bounded bulk | 14 |
 
-In legacy routing an owner can expose all 173 names. Progressive routing instead exposes at most 10 core anchors initially, adds the current screen group when relevant, and caps later model steps at 36 product tools. Authorization remains identical in both modes. See [Tools](/eve/tools/overview) and [Auth and sections](/eve/runtime/auth-and-sections).
+In legacy routing an owner can expose all 176 names. Progressive routing instead exposes at most 10 core anchors initially, adds the current screen group when relevant, and caps later model steps at 36 product tools. Authorization remains identical in both modes. See [Tools](/eve/tools/overview) and [Auth and sections](/eve/runtime/auth-and-sections).
 
 ## What it cannot do
 

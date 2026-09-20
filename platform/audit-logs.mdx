@@ -8,10 +8,10 @@ description: "Studio activity log (owner/admin)."
 ## Route
 
 ```txt
-/studios/:id/logs
+/orgs/:orgHandle/:handle/logs
 ```
 
-Helper: `StudioPaths.LOGS`. Bare `/logs` (and legacy `/en/logs`, `/es/logs`) redirects to the current studio path.
+Helper: `StudioPaths.LOGS`.
 
 ## Capabilities
 
@@ -26,7 +26,7 @@ Helper: `StudioPaths.LOGS`. Bare `/logs` (and legacy `/en/logs`, `/es/logs`) red
 
 ## API
 
-`GET /studios/:id/audit-logs` and `/search` accept:
+`GET /api/profiles/:studioId/audit-logs` and `/search` accept:
 
 | Query | Notes |
 | --- | --- |
@@ -38,6 +38,10 @@ Helper: `StudioPaths.LOGS`. Bare `/logs` (and legacy `/en/logs`, `/es/logs`) red
 | `q` | `/search` only |
 
 The list includes `meta.total`.
+
+## AI review priorities
+
+Owners and admins can run **Highlight relevant events with AI** on up to 33 loaded entries per operation. Redacted metadata (field names only) is sent for inference; results are per-viewer findings keyed to immutable audit log IDs. Annotations can be undone or dismissed; source rows, pagination, totals, and CSV export stay unchanged. Routes: `/api/profiles/:studioId/audit-logs/ai/*`.
 
 ## Code
 

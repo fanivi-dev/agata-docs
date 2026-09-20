@@ -5,6 +5,8 @@ description: "Run Eve locally, check which tools are discovered, and try the sec
 
 Eve runs inside the Next app process (`withEve` in `apps/app/next.config.ts`), but it has its own dev server for iterating on the agent.
 
+Clone and env setup: [Local development](/getting-started/local-development).
+
 <Steps>
   <Step title="Start the Go API">
     Eve does not talk to Postgres: each tool calls the Go API with the user's session token.

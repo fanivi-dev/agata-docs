@@ -9,7 +9,7 @@ description: "Feedback submission modal and internal review hub at /feedback."
 
 - Opens from the studio or platform user menu, or with the *Send feedback* command-palette action.
 - Form: type (`bug` / `idea` / `praise`), message (counter + draft in `localStorage`), area/domain (preselected from the current route with the *Detected from your current page* hint; searchable combobox), optional current URL, and up to 5 images.
-- Submission remains **studio-scoped**: `POST /api/feedback/studios/:profileId` with the user session. On platform surfaces the user’s first active studio is used.
+- Submission remains **studio-scoped**: `POST /api/feedback/profiles/:studioId` with the user session. On platform surfaces the user’s first active studio is used.
 
 ## Review hub
 
@@ -21,6 +21,18 @@ description: "Feedback submission modal and internal review hub at /feedback."
 - Authenticated root routes (`(authenticated)` group): require a Better Auth session like `/connections`.
 - They use the platform shell (nav + user menu). They do **not** appear as a product navigation destination; the hub is opened by URL.
 - The former studio-scoped hub (`/workspaces/:id/feedback`, then `/studios/:id/feedback`) and the studio gate named `feedback` **no longer exist**.
+
+### AI triage
+
+Authorized feedback admins can run **Triage with AI** from a submission detail. One click evaluates the stored message, source path, existing product areas, feedback kind, bug severity, and up to twenty related submissions, then writes the confident fields immediately.
+
+- The submitted message, original kind, and original area remain unchanged as provenance.
+- Severity is stored only for bugs. Weak evidence leaves a field empty.
+- A duplicate is a reversible link; submissions are never merged or deleted, and duplicate cycles are rejected.
+- The shared triage appears in the list and detail for every authorized admin. Admins can edit its effective area, type, bug severity, and duplicate link, clear it directly, or use the temporary **Undo** toast after an AI write. Edit and clear commands compare the current triage revision so they do not overwrite a concurrent change.
+- The action never sends author email, images, or attachment bodies to the model.
+
+The browser never receives the feedback-admin write grant. The Next server requires both a Better Auth session and `requireFeedbackAdminSession()`, then signs a 30-second command-specific grant. The Go API validates that grant, the session token hash, the operation ID, submission ID, action, and request digest before claiming, applying, clearing, or undoing triage.
 
 ### Access gate
 
@@ -41,6 +53,8 @@ After unlock, the BFF reads the Go API over the internal channel with `CRON_SECR
 
 - `GET /api/internal/feedback?domain=&cursor=&limit=`
 - `GET /api/internal/feedback/:feedbackId`
+
+These responses include the current shared triage finding when present. Domain filters use the effective triage area while preserving the original submission fields.
 
 ## Code
 

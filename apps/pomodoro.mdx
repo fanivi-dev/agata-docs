@@ -14,9 +14,15 @@ description: "Focus timers, list/detail, and full-screen focus mode."
 - Sessions and daily stats
 - Quick capture and floating timer outside the app
 
+## List state and focus summary
+
+The list keeps its scope (`?scope=pinned` or `?scope=archived`), search (`?q=`), and view in the URL. Reloading or sharing the URL preserves those choices; **Clear filters** removes scope and search together.
+
+Today’s totals and the last seven days use the Insights aggregate, independently of the recent-session list limit. The streak uses up to 90 days of daily totals and can continue through yesterday when today has no focus yet. If it reaches the beginning of that window, it reads **At least N days** rather than claiming an exact lifetime streak. Dates use the account time zone. Each weekly bar can receive keyboard focus and exposes its date and focus duration through a tooltip and accessible name.
+
 ## Insights
 
-The **Insights** tab (`/pomodoro/insights`) summarizes today/week focus, work sessions, streak, and ranking by timer. The UI offers a **7 / 30 / 90** day range (`?range=`). API: `GET /api/pomodoro/studios/:profileId/insights-summary?todayDateKey=YYYY-MM-DD&rangeDays=30`.
+The **Insights** tab (`/pomodoro/insights`) summarizes today/week focus, work sessions, streak, and ranking by timer. The UI offers a **7 / 30 / 90** day range (`?range=`). API: `GET /api/pomodoro/profiles/:studioId/insights-summary?todayDateKey=YYYY-MM-DD&rangeDays=30`.
 
 ## Routes
 
@@ -32,3 +38,7 @@ The **Insights** tab (`/pomodoro/insights`) summarizes today/week focus, work se
 - Works well with the tasks **focus** view.
 
 Theme: `pomodoro`.
+
+## AI next task
+
+**Choose next task with AI** on the timer detail header updates `linkedTaskId` / linked project for the **next** work phase (revision-guarded on the timer row). Active work phases snapshot task/project links at phase start into session attribution columns (`000101`); legacy in-progress phases stay unattributed until they end. Routes: `/api/pomodoro/profiles/:studioId/timers/:timerId/ai/select-task-context`, `POST .../timers/ai/select-task`, undo under `.../timers/ai/:operationId/undo`.
